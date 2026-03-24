@@ -1,0 +1,387 @@
+@import "tailwindcss";
+
+
+
+@theme {
+  /* ========== TYPOGRAPHY ========== */
+  --font-display: "Satoshi", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  
+  /* Fluid Typography Scale (clamp: min, preferred, max) */
+  --text-fluid-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  --text-fluid-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+  --text-fluid-base: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
+  --text-fluid-lg: clamp(1.125rem, 1rem + 0.6vw, 1.25rem);
+  --text-fluid-xl: clamp(1.25rem, 1rem + 1vw, 1.5rem);
+  --text-fluid-2xl: clamp(1.5rem, 1.2rem + 1.5vw, 2rem);
+  --text-fluid-3xl: clamp(1.875rem, 1.5rem + 2vw, 2.5rem);
+  --text-fluid-4xl: clamp(2.25rem, 1.5rem + 3vw, 3.5rem);
+  --text-fluid-display: clamp(2.5rem, 1.5rem + 4vw, 5rem);
+  
+  /* ========== COLORS - OKLCH ========== */
+  /* Primary Brand - Indigo with warmth */
+  --color-primary-50: oklch(0.98 0.01 265);
+  --color-primary-100: oklch(0.93 0.04 265);
+  --color-primary-200: oklch(0.86 0.08 265);
+  --color-primary-300: oklch(0.76 0.14 265);
+  --color-primary-400: oklch(0.66 0.18 265);
+  --color-primary-500: oklch(0.55 0.22 265);
+  --color-primary-600: oklch(0.48 0.22 265);
+  --color-primary-700: oklch(0.40 0.20 265);
+  --color-primary-800: oklch(0.33 0.16 265);
+  --color-primary-900: oklch(0.27 0.12 265);
+  
+  /* Accent - Purple for contrast */
+  --color-accent-50: oklch(0.98 0.02 300);
+  --color-accent-100: oklch(0.95 0.04 300);
+  --color-accent-200: oklch(0.90 0.08 300);
+  --color-accent-400: oklch(0.70 0.18 300);
+  --color-accent-500: oklch(0.60 0.22 300);
+  --color-accent-600: oklch(0.50 0.22 300);
+  
+  /* Success - Emerald */
+  --color-success-50: oklch(0.98 0.02 160);
+  --color-success-100: oklch(0.95 0.04 160);
+  --color-success-200: oklch(0.90 0.08 160);
+  --color-success-400: oklch(0.75 0.18 160);
+  --color-success-500: oklch(0.65 0.20 160);
+  --color-success-600: oklch(0.55 0.18 160);
+  --color-success-700: oklch(0.45 0.16 160);
+  
+  /* Warning - Amber */
+  --color-warning-50: oklch(0.98 0.02 85);
+  --color-warning-100: oklch(0.95 0.08 85);
+  --color-warning-200: oklch(0.90 0.12 85);
+  --color-warning-400: oklch(0.85 0.16 85);
+  --color-warning-500: oklch(0.75 0.18 85);
+  --color-warning-600: oklch(0.65 0.16 85);
+  
+  /* Error - Red */
+  --color-error-50: oklch(0.98 0.02 25);
+  --color-error-100: oklch(0.95 0.06 25);
+  --color-error-200: oklch(0.90 0.10 25);
+  --color-error-400: oklch(0.70 0.20 25);
+  --color-error-500: oklch(0.60 0.22 25);
+  --color-error-600: oklch(0.50 0.20 25);
+  
+  /* Neutral Surfaces - Warm grays (not pure gray!) */
+  --color-surface-50: oklch(0.99 0.005 260);
+  --color-surface-100: oklch(0.97 0.008 260);
+  --color-surface-200: oklch(0.93 0.01 260);
+  --color-surface-300: oklch(0.88 0.012 260);
+  --color-surface-400: oklch(0.70 0.015 260);
+  --color-surface-500: oklch(0.55 0.015 260);
+  --color-surface-600: oklch(0.45 0.015 260);
+  --color-surface-700: oklch(0.35 0.015 260);
+  --color-surface-800: oklch(0.25 0.015 260);
+  --color-surface-900: oklch(0.15 0.015 260);
+  
+  /* ========== SPACING - 8pt Grid ========== */
+  --spacing-fluid-xs: clamp(0.25rem, 0.2rem + 0.25vw, 0.5rem);
+  --spacing-fluid-sm: clamp(0.5rem, 0.4rem + 0.5vw, 1rem);
+  --spacing-fluid-md: clamp(1rem, 0.8rem + 1vw, 1.5rem);
+  --spacing-fluid-lg: clamp(1.5rem, 1rem + 2vw, 3rem);
+  --spacing-fluid-xl: clamp(2rem, 1.5rem + 3vw, 5rem);
+  --spacing-fluid-2xl: clamp(3rem, 2rem + 4vw, 8rem);
+  
+  /* ========== ANIMATION ========== */
+  /* Spring curves - NO ease-in-out! */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-spring-snappy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring-gentle: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  
+  /* ========== SHADOWS - Colored, not black! ========== */
+  --shadow-sm: 0 1px 2px oklch(0.55 0.02 265 / 0.05);
+  --shadow-md: 0 4px 6px -1px oklch(0.55 0.02 265 / 0.07), 0 2px 4px -2px oklch(0.55 0.02 265 / 0.05);
+  --shadow-lg: 0 10px 15px -3px oklch(0.55 0.02 265 / 0.08), 0 4px 6px -4px oklch(0.55 0.02 265 / 0.05);
+  --shadow-xl: 0 20px 25px -5px oklch(0.55 0.02 265 / 0.10), 0 8px 10px -6px oklch(0.55 0.02 265 / 0.05);
+  --shadow-2xl: 0 25px 50px -12px oklch(0.55 0.02 265 / 0.20);
+  
+  /* Primary colored shadow for CTAs */
+  --shadow-primary: 0 10px 30px -5px oklch(0.55 0.22 265 / 0.35);
+  --shadow-primary-lg: 0 20px 40px -10px oklch(0.55 0.22 265 / 0.45);
+  
+  /* ========== RADII ========== */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+}
+
+/* ========== BASE STYLES ========== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  /* Smooth scrolling */
+  scroll-behavior: smooth;
+  /* Prevent layout shift from scrollbar */
+  scrollbar-gutter: stable;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-fluid-base);
+  line-height: 1.6;
+  color: var(--color-surface-800);
+  background-color: var(--color-surface-50);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile */
+}
+
+/* ========== TYPOGRAPHY UTILITIES ========== */
+.text-display {
+  font-family: var(--font-display);
+  font-size: var(--text-fluid-display);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.text-heading-1 {
+  font-family: var(--font-display);
+  font-size: var(--text-fluid-4xl);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.text-heading-2 {
+  font-family: var(--font-display);
+  font-size: var(--text-fluid-3xl);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.text-heading-3 {
+  font-family: var(--font-display);
+  font-size: var(--text-fluid-2xl);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+.text-body-lg {
+  font-size: var(--text-fluid-lg);
+  line-height: 1.7;
+}
+
+.text-body {
+  font-size: var(--text-fluid-base);
+  line-height: 1.6;
+}
+
+.text-body-sm {
+  font-size: var(--text-fluid-sm);
+  line-height: 1.5;
+}
+
+/* ========== CUSTOM UTILITIES ========== */
+
+/* Glass Panel Effect */
+.glass-panel {
+  background: color-mix(in oklch, var(--color-surface-50) 80%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid color-mix(in oklch, white 20%, transparent);
+  box-shadow: 
+    var(--shadow-lg),
+    inset 0 1px 0 0 color-mix(in oklch, white 40%, transparent);
+}
+
+/* Card with depth */
+.card-elevated {
+  background: var(--color-surface-50);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-surface-200);
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.3s var(--ease-spring-gentle), 
+              transform 0.3s var(--ease-spring-gentle);
+}
+
+.card-elevated:hover {
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-2px);
+}
+
+/* Primary Button Shadow */
+.btn-primary-shadow {
+  box-shadow: var(--shadow-primary);
+  transition: box-shadow 0.3s var(--ease-spring-gentle),
+              transform 0.3s var(--ease-spring-gentle);
+}
+
+.btn-primary-shadow:hover {
+  box-shadow: var(--shadow-primary-lg);
+  transform: translateY(-1px);
+}
+
+/* Focus Ring - Accessible & Beautiful */
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+/* Selection styling */
+::selection {
+  background: var(--color-primary-200);
+  color: var(--color-primary-900);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-300);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-surface-400);
+}
+
+/* ========== ANIMATION KEYFRAMES ========== */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shimmer/Skeleton utility */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-200) 25%,
+    var(--color-surface-100) 50%,
+    var(--color-surface-200) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+}
+
+
+
+
+
+
+
+
+
+/* :root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+} */
