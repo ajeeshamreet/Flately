@@ -1,119 +1,517 @@
 # Flately — System Architecture
 
-## Overview
+> **Version**: 2.4 COMMAND  
+> **Last Updated**: 2026-03-25  
+> **Stack**: TypeScript Full-Stack · MongoDB · Auth0 · Socket.IO
 
-Flately is a roommate-matching application built on a modern full-stack TypeScript architecture. The system follows a **modular monolith** pattern on the backend with a **feature-based** frontend structure.
+---
 
-## System Architecture
+## 1. High-Level Architecture
 
-```mermaid
-graph TB
-    subgraph Frontend["Frontend (React 19 + Vite)"]
-        UI[React Components]
-        Redux[Redux Toolkit Store]
-        Auth0SDK[Auth0 React SDK]
-        SocketClient[Socket.io Client]
-    end
-
-    subgraph Backend["Backend (Express.js + TypeScript)"]
-        Routes[Express Routes]
-        Auth[Auth0 JWT Middleware]
-        Controllers[Controllers]
-        Services[Service Layer]
-        Prisma[Prisma ORM]
-        SocketServer[Socket.io Server]
-    end
-
-    subgraph External["External Services"]
-        MongoDB[(MongoDB Atlas)]
-        Auth0Service[Auth0 IdP]
-    end
-
-    UI --> Redux
-    Redux --> |HTTP/REST| Routes
-    Auth0SDK --> Auth0Service
-    SocketClient --> |WebSocket| SocketServer
-    Routes --> Auth --> Controllers --> Services --> Prisma --> MongoDB
-    Auth --> Auth0Service
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         CLIENT (Browser)                        │
+│  React 19 + Vite 7 + Redux Toolkit + TailwindCSS v4            │
+│  Auth0 SPA SDK + Socket.IO Client + Framer Motion              │
+│  Port: 5173 (dev)                                               │
+└────────────────────┬──────────────────┬─────────────────────────┘
+                     │ REST (Axios)     │ WebSocket (Socket.IO)
+                     │ Bearer JWT       │ Bidirectional
+                     ▼                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        BACKEND SERVER                           │
+│  Express 5 + TypeScript + http.createServer()                   │
+│  Helmet · CORS · Rate Limiting · Zod Env Validation             │
+│  Port: 4000                                                     │
+│                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
+│  │  REST API    │  │  Socket.IO   │  │  Auth0 JWT Middleware │   │
+│  │  (7 routers) │  │  (chat ns)   │  │  (RS256 verification)│   │
+│  └──────┬───────┘  └──────┬───────┘  └──────────────────────┘   │
+│         │                 │                                      │
+│         ▼                 ▼                                      │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │              Prisma ORM (PrismaClient singleton)         │   │
+│  └──────────────────────────┬───────────────────────────────┘   │
+└─────────────────────────────┼───────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                  MongoDB Atlas (Cluster0)                        │
+│  Database: flately                                              │
+│  Collections: User, Profile, Preference, Swipe, Match,          │
+│               Conversation, Message                             │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Backend Module Map
+---
+
+## 2. Technology Stack — Exact Versions
+
+### Backend
+
+| Technology | Version | Purpose |
+|---|---|---|
+| Node.js | 22.x | Runtime |
+| TypeScript | ^5.9.3 | Language |
+| Express | ^5.2.1 | HTTP framework |
+| Prisma | ^6.12.0 / Client ^6.19.1 | ORM for MongoDB |
+| Socket.IO | ^4.8.3 | Real-time WebSocket |
+| Auth0 (express-oauth2-jwt-bearer) | ^1.7.3 | JWT validation |
+| Zod | ^3.23.8 | Runtime schema validation |
+| Helmet | ^8.1.0 | HTTP security headers |
+| cors | ^2.8.5 | Cross-origin resource sharing |
+| express-rate-limit | ^8.2.1 | Rate limiting |
+| bcrypt | ^6.0.0 | Password hashing (future use) |
+| jsonwebtoken | ^9.0.3 | JWT utility |
+| tsx | ^4.19.2 | TypeScript execution (dev) |
+
+### Frontend
+
+| Technology | Version | Purpose |
+|---|---|---|
+| React | ^19.2.3 | UI framework |
+| Vite | ^7.2.4 | Build tool / dev server |
+| TypeScript | ^5.9.3 | Language |
+| TailwindCSS | ^4.1.18 | CSS framework (v4 with `@import "tailwindcss"`) |
+| Redux Toolkit | ^2.11.2 | State management |
+| React Router DOM | ^6.28.0 | Client-side routing |
+| Auth0 React SDK | ^2.11.0 | Authentication |
+| Axios | ^1.13.2 | HTTP client |
+| Framer Motion | ^12.29.2 | Animations |
+| Socket.IO Client | ^4.8.3 | Real-time WebSocket |
+| React Hook Form | ^7.71.1 | Form management |
+| Zod | ^4.3.5 | Form validation |
+| Radix UI | Various ^1.x | Accessible primitives |
+| Lucide React | ^0.563.0 | Icons (alongside Material Symbols) |
+| Storybook | ^10.3.3 | Component development |
+| Vitest | ^4.1.1 | Testing framework |
+| Playwright | ^1.58.2 | Browser testing |
+
+---
+
+## 3. Authentication Flow (Auth0)
+
+```
+┌──────────┐     ┌───────────┐     ┌────────────┐     ┌──────────┐
+│  Browser  │────▶│  Auth0    │────▶│  Callback  │────▶│  App     │
+│  (Login)  │     │  Hosted   │     │  Redirect  │     │  /app    │
+└──────────┘     │  Login    │     │  (origin)  │     └────┬─────┘
+                 └───────────┘     └────────────┘          │
+                                                           │ AuthSync
+                                                           │ component
+                                                           ▼
+                                                    ┌─────────────┐
+                                                    │ GET /users/me│
+                                                    │ Bearer JWT   │
+                                                    └──────┬──────┘
+                                                           │
+                                                           ▼
+                                                    ┌─────────────┐
+                                                    │ getOrCreate  │
+                                                    │ User (upsert)│
+                                                    └─────────────┘
+```
+
+### Auth0 Configuration
+
+```typescript
+// Frontend — main.tsx
+Auth0Provider config:
+  domain:    "dev-aobtnrv6g50bmj1a.us.auth0.com"
+  clientId:  "2Pz3Q6dir2WRg5lDLW8ucrmo3HG92cOR"
+  audience:  "http://localhost:4000"
+  redirect:  window.location.origin
+
+// Backend — auth0.middleware.ts
+checkJwt = auth({
+  audience:       process.env.AUTH0_AUDIENCE,  // "http://localhost:4000"
+  issuerBaseURL:  `https://${process.env.AUTH0_DOMAIN}/`,  // Auth0 tenant
+  tokenSigningAlg: 'RS256'
+});
+```
+
+### Auth Middleware Pipeline
+
+Every protected endpoint goes through:
+1. **`checkJwt`** — Validates the Bearer token against Auth0 JWKS
+2. **`attachUserId`** — Extracts `req.auth.payload.sub` → `req.userId`
+
+```typescript
+// middlewares/auth0.middleware.ts
+export default [checkJwt, attachUserId] as RequestHandler[];
+```
+
+### AuthSync Component (Frontend)
+
+Automatically syncs Auth0 user with backend on login:
+
+```typescript
+// features/auth/AuthSync.tsx
+useEffect(() => {
+  if (!isLoading && isAuthenticated && user) {
+    dispatch(setAuth(user));
+    // POST /users/me — creates backend User record if not exists
+    apiRequest("/users/me", {}, getAccessTokenSilently);
+  }
+}, [isAuthenticated, user, isLoading]);
+```
+
+---
+
+## 4. Backend Module Architecture
 
 ```
 backend/src/
-├── config/          # Environment & Prisma client
-├── middlewares/     # Auth0 JWT validation
-├── types/           # Shared TypeScript types
-└── modules/
-    ├── users        # User CRUD (Auth0 sync)
-    ├── profiles/    # Profile management
-    ├── preferences/ # Matching preferences
-    ├── discovery/   # Feed & swipe actions
-    ├── matching/    # Compatibility algorithm
-    ├── matches/     # Match lifecycle
-    └── chat/        # Messages + Socket.io
+├── app.ts                          # Express app setup (middleware + routes)
+├── server.ts                       # HTTP server + Socket.IO bootstrap
+├── config/
+│   ├── env.ts                      # Zod-validated environment variables
+│   └── prisma.ts                   # PrismaClient singleton
+├── middlewares/
+│   └── auth0.middleware.ts         # JWT validation + userId extraction
+├── modules/
+│   ├── users.controllers.ts        # GET /users/me
+│   ├── users.routes.ts             # Router for /users
+│   ├── users.service.ts            # getOrCreateUser()
+│   ├── profiles/
+│   │   ├── profiles.controller.ts  # GET/POST /profiles/me
+│   │   ├── profiles.routes.ts
+│   │   └── profiles.service.ts     # getProfileByUserId(), createOrUpdateProfile()
+│   ├── preferences/
+│   │   ├── preferences.controller.ts  # GET/POST /preferences/me
+│   │   ├── preferences.routes.ts
+│   │   └── preferences.service.ts     # Weight validation (sum=100)
+│   ├── matching/
+│   │   ├── matching.controller.ts  # GET /matching/me
+│   │   ├── matching.routes.ts
+│   │   └── matching.service.ts     # Compatibility algorithm
+│   ├── discovery/
+│   │   ├── discovery.controller.ts # GET /discovery/feed, POST /discovery/swipe
+│   │   ├── discovery.routes.ts
+│   │   └── discovery.service.ts    # Feed generation + swipe handler
+│   ├── matches/
+│   │   ├── matches.controller.ts   # GET /matches/me
+│   │   ├── matches.routes.ts
+│   │   └── matches.service.ts      # Mutual like detection + match creation
+│   └── chat/
+│       ├── chat.controller.ts      # GET /chat/:matchId
+│       ├── chat.routes.ts
+│       ├── chat.service.ts         # Conversation + message CRUD
+│       └── chat.socket.ts          # Socket.IO event handlers
+└── types/
+    ├── api.ts                      # ApiResponse<T>, PaginatedResponse<T>
+    ├── auth.ts                     # Auth0User, AuthRequest
+    ├── database.ts                 # User, Profile, Match interfaces
+    └── socket.ts                   # ServerToClientEvents, ClientToServerEvents
 ```
 
-Each module follows the pattern: `routes → controller → service → Prisma`.
+### Module Pattern
 
-## Data Flow
+Every backend module follows the **Controller → Service → Prisma** pattern:
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant R as React
-    participant RX as Redux
-    participant API as Express API
-    participant MW as Auth0 Middleware
-    participant SVC as Service
-    participant DB as MongoDB
-
-    U->>R: Interaction
-    R->>RX: Dispatch Action
-    RX->>API: HTTP Request + Bearer Token
-    API->>MW: Validate JWT
-    MW->>API: userId extracted
-    API->>SVC: Business Logic
-    SVC->>DB: Prisma Query
-    DB-->>SVC: Result
-    SVC-->>API: Response
-    API-->>RX: JSON Data
-    RX-->>R: State Update
-    R-->>U: UI Render
+```
+Route (auth middleware) → Controller (request/response) → Service (business logic) → Prisma (DB)
 ```
 
-## Key Design Decisions
+---
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Database | MongoDB Atlas | Flexible schema for user profiles, Prisma ORM support |
-| Auth | Auth0 | Managed OAuth2/JWT, social login, zero custom auth code |
-| Real-time | Socket.io | Bi-directional messaging, room-based conversations |
-| State | Redux Toolkit | Predictable state, devtools, slices pattern |
-| Styling | Tailwind CSS v4 | `@theme` directive, OKLCH colors, fluid typography |
-| Validation | Zod | Runtime + compile-time validation, env vars |
-| Build | Vite | Fast HMR, native ESM, React plugin |
+## 5. Express App Configuration
 
-## Entity Relationships
+```typescript
+// app.ts — Middleware stack (applied in order)
+app.use(helmet());                    // Security headers
+app.use(cors({
+  origin: env.FRONTEND_URL,           // "http://localhost:5173"
+  credentials: true
+}));
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,           // 15 minutes
+  max: 100,                            // 100 requests per window
+  standardHeaders: true,
+  legacyHeaders: false
+}));
+app.use(express.json());              // JSON body parser
 
-```mermaid
-erDiagram
-    User ||--o| Profile : has
-    User ||--o| Preference : has
-    User ||--o{ Swipe : sends
-    User }|--o{ Match : participates
-    Match ||--|| Conversation : has
-    Conversation ||--o{ Message : contains
+// Route registration
+app.use('/matching',    matchingRoutes);
+app.use('/profiles',    profileRoutes);
+app.use('/discovery',   discoveryRoutes);
+app.use('/users',       userRoutes);
+app.use('/matches',     matchRoutes);
+app.use('/chat',        chatRoutes);
+app.use('/preferences', preferenceRoutes);
+app.get('/health', (_, res) => res.json({ status: 'ok' }));
 ```
 
-## Environment Variables
+### Server Bootstrap
 
-Validated at startup via Zod in `config/env.ts`:
+```typescript
+// server.ts
+const server = http.createServer(app);
+const io = new Server<ClientToServerEvents, ServerToClientEvents>(server, {
+  cors: { origin: '*' }   // ← NOTE: Socket.IO CORS is more permissive than Express
+});
+registerChatSocket(io);
+server.listen(PORT || 4000);
+```
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `PORT` | No | `4000` | Server port |
-| `DATABASE_URL` | **Yes** | — | MongoDB connection string |
-| `AUTH0_DOMAIN` | **Yes** | — | Auth0 tenant domain |
-| `AUTH0_AUDIENCE` | **Yes** | — | Auth0 API audience |
-| `FRONTEND_URL` | No | `http://localhost:5173` | CORS origin |
+---
+
+## 6. Environment Configuration
+
+### Backend `.env`
+
+```env
+PORT=4000
+DATABASE_URL="mongodb+srv://<user>:<pass>@cluster0.vthoeo7.mongodb.net/flately"
+AUTH0_DOMAIN=dev-aobtnrv6g50bmj1a.us.auth0.com
+AUTH0_AUDIENCE=http://localhost:4000
+FRONTEND_URL="http://localhost:5173"
+```
+
+### Zod Validation
+
+```typescript
+// config/env.ts
+const envSchema = z.object({
+  PORT:           z.coerce.number().default(4000),
+  DATABASE_URL:   z.string().min(1, 'DATABASE_URL is required'),
+  AUTH0_DOMAIN:   z.string().min(1, 'AUTH0_DOMAIN is required'),
+  AUTH0_AUDIENCE: z.string().min(1, 'AUTH0_AUDIENCE is required'),
+  FRONTEND_URL:   z.string().default('http://localhost:5173'),
+});
+// Exits process on validation failure
+```
+
+---
+
+## 7. Frontend Architecture
+
+```
+frontend/frontend/src/
+├── main.tsx                           # App entry point (Auth0Provider + Redux + Router)
+├── index.css                          # Design tokens + TailwindCSS v4 theme
+├── app/
+│   ├── router.tsx                     # React Router configuration (all routes)
+│   ├── store.ts                       # Redux store (6 slices)
+│   ├── AppLayout.tsx                  # Sidebar + Outlet layout (Framer Motion)
+│   └── ProtectedRoute.tsx             # Auth guard (redirects to / if unauthenticated)
+├── pages/
+│   ├── Landing.tsx                    # Public landing page (Hero, How It Works, CTA)
+│   ├── Login.tsx                      # Placeholder
+│   └── NotFound.tsx                   # 404 page
+├── features/
+│   ├── auth/
+│   │   ├── authSlice.ts               # Redux: {isAuthenticated, user, loading}
+│   │   └── AuthSync.tsx               # Syncs Auth0 state → Redux + backend
+│   ├── onboarding/
+│   │   ├── OnboardingPage.tsx         # 5-step onboarding form
+│   │   ├── ProfileForm.tsx            # Legacy simple profile form
+│   │   └── onboardingSlice.ts         # Redux: {profile, loading, completed}
+│   ├── discovery/
+│   │   ├── DiscoveryPage.tsx          # Split-panel: queue + profile detail
+│   │   └── discoverySlice.ts          # Redux: {feed[], loading}
+│   ├── matches/
+│   │   ├── MatchesPage.tsx            # Data table with filters, sparklines
+│   │   └── matchesSlice.ts            # Redux: {list[], loading}
+│   ├── chat/
+│   │   ├── ChatPage.tsx               # 3-panel: threads + messages + intel
+│   │   ├── chatSlice.ts               # Redux: {conversations{}, activeId, loading}
+│   │   └── socket.ts                  # Socket.IO client instance
+│   ├── preferences/
+│   │   ├── PreferencesPage.tsx         # Preferences editor
+│   │   ├── PreferenceForm.tsx          # Preference form component
+│   │   └── preferencesSlice.ts         # Redux slice
+│   ├── dashboard/
+│   │   └── DashboardPage.tsx          # 3-column: signals + stats + criteria
+│   └── rooms/                         # (placeholder module — not yet implemented)
+├── components/
+│   ├── common/
+│   │   └── Stepper.tsx                # Step indicator component
+│   ├── layout/
+│   │   ├── AppSidebar.tsx             # Navigation sidebar (fixed, 256px)
+│   │   └── Navbar.tsx                 # Top navbar for landing page
+│   └── ui/
+│       ├── Button.tsx                 # Reusable button
+│       ├── Card.tsx                   # Card component
+│       ├── Input.tsx                  # Input component
+│       ├── NoiseLayer.tsx             # Visual noise texture overlay
+│       ├── Skeleton.tsx               # Loading skeleton
+│       └── index.ts                   # Barrel export
+├── services/
+│   ├── api.ts                         # Axios client + apiRequest(path, options, getToken)
+│   └── auth0.ts                       # Placeholder
+├── lib/
+│   └── utils.ts                       # cn() — clsx + tailwind-merge
+└── types/
+    └── index.ts                       # User, Profile, Preference, Match interfaces
+```
+
+### Component Hierarchy
+
+```
+<StrictMode>
+  <Auth0Provider>       ← Auth0 context
+    <Provider store>    ← Redux store
+      <AuthSync>        ← Auto-syncs Auth0 → Redux + backend
+        <RouterProvider>
+          ├── <Landing />                             (path: /)
+          ├── <AppLayout>                             (wrapper with sidebar)
+          │     <AppSidebar />                        (fixed sidebar, 256px)
+          │     <motion.main>                         (animated content area)
+          │       <ProtectedRoute>                    (auth guard)
+          │         ├── <DashboardPage />              (path: /app)
+          │         ├── <OnboardingPage />             (path: /app/onboarding)
+          │         ├── <DiscoveryPage />              (path: /app/discover)
+          │         ├── <MatchesPage />                (path: /app/matches)
+          │         └── <ChatPage />                   (path: /app/chat/:matchId?)
+          │       </ProtectedRoute>
+          │     </motion.main>
+          │   </AppLayout>
+          └── <NotFound />                            (path: *)
+```
+
+---
+
+## 8. State Management (Redux Toolkit)
+
+```typescript
+// app/store.ts
+export const store = configureStore({
+  reducer: {
+    auth:        authReducer,        // {isAuthenticated, user, loading}
+    onboarding:  onboardingReducer,  // {profile, loading, completed}
+    preferences: preferenceReducer,  // Preference form state
+    discovery:   discoveryReducer,   // {feed[], loading}
+    matches:     matchesReducer,     // {list[], loading}
+    chat:        chatReducer,        // {conversations{}, activeConversationId, loading, error}
+  }
+});
+```
+
+### Slice Actions Summary
+
+| Slice | Actions |
+|---|---|
+| `auth` | `setAuth(user)`, `clearAuth()` |
+| `onboarding` | `startLoading()`, `setProfile(profile)` |
+| `discovery` | `start()`, `setFeed(feed)`, `removeUser(userId)` |
+| `matches` | `start()`, `setMatches(list)` |
+| `chat` | `setLoading()`, `setActiveConversation(id)`, `setConversation({id, messages})`, `addMessage({conversationId, message})`, `setError(msg)`, `clearChat()` |
+| `preferences` | (standard CRUD pattern) |
+
+---
+
+## 9. API Client Pattern
+
+```typescript
+// services/api.ts
+const api = axios.create({
+  baseURL: 'http://localhost:4000',
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+export async function apiRequest(path, options = {}, getToken) {
+  const token = await getToken();
+  const response = await api({
+    url: path,
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+}
+```
+
+**Usage pattern across all pages:**
+```typescript
+const { getAccessTokenSilently } = useAuth0();
+const data = await apiRequest('/endpoint', { method: 'POST', data: body }, getAccessTokenSilently);
+```
+
+---
+
+## 10. Real-Time Communication (Socket.IO)
+
+### Server-Side
+
+```typescript
+// chat.socket.ts
+io.on('connection', (socket) => {
+  socket.on('join', (conversationId) => socket.join(conversationId));
+  socket.on('send_message', async ({ conversationId, senderId, content }) => {
+    const msg = await sendMessage(conversationId, senderId, content);
+    io.to(conversationId).emit('new_message', {
+      id: msg.id, senderId: msg.senderId,
+      content: msg.content, timestamp: msg.createdAt
+    });
+  });
+});
+```
+
+### Client-Side
+
+```typescript
+// chat/socket.ts
+export const socket = io("http://localhost:4000");
+
+// ChatPage.tsx
+socket.emit('join', conversationId);
+socket.emit('send_message', { conversationId, senderId, content });
+socket.on('new_message', (msg) => setMessages(prev => [...prev, msg]));
+```
+
+### Socket Event Contract
+
+| Direction | Event | Payload |
+|---|---|---|
+| Client → Server | `join` | `conversationId: string` |
+| Client → Server | `send_message` | `{ conversationId, senderId, content }` |
+| Server → Client | `new_message` | `{ id, senderId, content, timestamp }` |
+
+---
+
+## 11. Routing Map
+
+| Path | Component | Auth Required | Description |
+|---|---|---|---|
+| `/` | `Landing` | No | Public landing page |
+| `/app` | `DashboardPage` | Yes | Main dashboard |
+| `/app/onboarding` | `OnboardingPage` | Yes | 5-step profile setup |
+| `/app/discover` | `DiscoveryPage` | Yes | Browse potential roommates |
+| `/app/matches` | `MatchesPage` | Yes | View match history |
+| `/app/chat/:matchId?` | `ChatPage` | Yes | Real-time messaging |
+| `*` | `NotFound` | No | 404 page |
+
+---
+
+## 12. Build & Development Commands
+
+### Backend
+
+```bash
+cd backend
+npm install
+npm run dev          # tsx watch src/server.ts (hot reload)
+npm run build        # tsc → dist/
+npm run start:prod   # node dist/server.js
+npm run seed         # Seed 8 demo users + matches + conversations
+npm run seed:reset   # Remove all demo data (auth0id starts with "demo_")
+npm run typecheck    # tsc --noEmit
+```
+
+### Frontend
+
+```bash
+cd frontend/frontend
+npm install
+npm run dev          # vite dev server on port 5173
+npm run build        # vite build → dist/
+npm run preview      # vite preview (production build preview)
+npm run lint         # eslint
+npm run storybook    # storybook dev on port 6006
+```
