@@ -1,18 +1,20 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon src/server.js",
-    "dev": "nodemon src/server.js",
-    "seed": "node prisma/seed.js",
-    "seed:reset": "node prisma/seed.js --reset"
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "build": "tsc",
+    "start:prod": "node dist/server.js",
+    "seed": "tsx prisma/seed.ts",
+    "seed:reset": "tsx prisma/seed.ts --reset",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Flatly backend API",
   "dependencies": {
     "@prisma/client": "^6.19.1",
     "axios": "^1.13.2",
@@ -25,10 +27,19 @@
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "prisma": "^6.19.1",
-    "socket.io": "^4.8.3"
+    "prisma": "^6.12.0",
+    "socket.io": "^4.8.3",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.19.15",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
   }
 }
