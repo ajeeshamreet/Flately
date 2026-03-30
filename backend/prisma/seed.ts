@@ -9,9 +9,11 @@
  * matches, and conversations for testing the app.
  */
 
-import { PrismaClient } from '@prisma/client';
+import * as dotenv from 'dotenv';
+import prisma from '../src/config/prisma';
 
-const prisma = new PrismaClient();
+// Load environment variables
+dotenv.config();
 
 interface DemoProfile {
   age: number;
