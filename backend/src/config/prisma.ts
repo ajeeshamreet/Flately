@@ -1,16 +1,31 @@
 import { PrismaClient } from '@prisma/client';
 
-class DatabaseConnection {
-  private static instance: PrismaClient | null = null;
+let _client: PrismaClient | null = null;
 
-  private constructor() {}
-
-  public static getInstance(): PrismaClient {
-    if (!DatabaseConnection.instance) {
-      DatabaseConnection.instance = new PrismaClient();
-    }
-    return DatabaseConnection.instance;
+function getPrismaClient(): PrismaClient {
+  if (!_client) {
+    _client = new PrismaClient();
   }
+  return _client;
 }
 
-export default DatabaseConnection.getInstance();
+// Export a proxy that lazily instantiates PrismaClient on first property access.
+// This prevents the client from being created at module-evaluation time,
+// allowing callers to load environment variables before the client is constructed.
+const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop, _receiver) {
+    const client = getPrismaClient();
+    const value = (client as any)[prop];
+    return typeof value === 'function' ? value.bind(client) : value;
+  },
+  set(_target, prop, value) {
+    const client = getPrismaClient();
+    (client as any)[prop] = value;
+    return true;
+  },
+}) as PrismaClient;
+
+export default prisma;
+
+
+
