@@ -2,8 +2,13 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
-import { apiRequest } from '@/services/api'
-import { socket } from './socket'
+import {
+  fetchMyMatches,
+  joinChatRoom,
+  onChatMessage,
+  openConversation,
+  sendChatMessage,
+} from './chat.transport'
 
 function ChatThread({ conversation, isActive, onClick }) {
   const userImage = conversation.user?.photos?.[0] || conversation.user?.image || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face'
@@ -67,7 +72,7 @@ export default function ChatPage() {
     let isMounted = true
     async function init() {
       try {
-        const matches = await apiRequest('/matches/me', {}, getAccessTokenSilently)
+        const matches = await fetchMyMatches(getAccessTokenSilently)
         if (isMounted && matches) {
           const convos = matches.map(m => ({
             id: m.id, user: m.otherUser ? { ...m.otherUser, image: m.otherUser.photos?.[0] } : { name: 'Roommate', image: null },
@@ -77,18 +82,18 @@ export default function ChatPage() {
           if (!activeConvo && convos.length > 0) setActiveConvo(convos[0].id)
         }
         if (activeConvo) {
-          const data = await apiRequest(`/chat/${activeConvo}`, {}, getAccessTokenSilently)
+          const data = await openConversation(activeConvo, getAccessTokenSilently)
           if (isMounted) {
             setConversationId(data.conversation?.id); setMessages(data.messages || []); setOtherUser(data.otherUser)
-            if (data.conversation?.id) socket.emit('join', data.conversation.id)
+            if (data.conversation?.id) joinChatRoom(data.conversation.id)
           }
         }
         if (isMounted) setIsLoading(false)
       } catch (error) { console.error('Failed to load chat:', error); if (isMounted) setIsLoading(false) }
     }
     init()
-    socket.on('new_message', (msg) => setMessages((prev) => [...prev, msg]))
-    return () => { isMounted = false; socket.off('new_message') }
+    const unsubscribe = onChatMessage((msg) => setMessages((prev) => [...prev, msg]))
+    return () => { isMounted = false; unsubscribe() }
   }, [activeConvo, getAccessTokenSilently])
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
@@ -98,7 +103,7 @@ export default function ChatPage() {
     const messageContent = input.trim()
     setMessages(prev => [...prev, { id: `temp-${Date.now()}`, senderId: user?.sub, content: messageContent, createdAt: new Date().toISOString() }])
     setInput('')
-    socket.emit('send_message', { conversationId, senderId: user?.sub, content: messageContent })
+    sendChatMessage({ conversationId, senderId: user?.sub, content: messageContent })
   }
 
   const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }

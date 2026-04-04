@@ -1,6 +1,9 @@
 import prisma from '../../config/prisma';
+import { UpsertByUserIdService } from '../shared/upsert-by-user-id.service';
 
 type PreferenceData = Parameters<typeof prisma.preference.update>[0]['data'];
+type PreferenceCreateData = Parameters<typeof prisma.preference.create>[0]['data'];
+type PreferenceRecord = Awaited<ReturnType<typeof prisma.preference.update>>;
 
 interface Weights {
   weightCleanliness: number;
@@ -37,6 +40,33 @@ function validateWeights(weights: unknown): boolean {
   return total === 100;
 }
 
+class PreferenceUpsertService extends UpsertByUserIdService<
+  PreferenceData,
+  PreferenceCreateData,
+  PreferenceRecord
+> {
+  protected findByUserId(userId: string): Promise<PreferenceRecord | null> {
+    return prisma.preference.findUnique({ where: { userId } });
+  }
+
+  protected updateByUserId(userId: string, data: PreferenceData): Promise<PreferenceRecord> {
+    return prisma.preference.update({ where: { userId }, data });
+  }
+
+  protected mapCreateData(userId: string, data: PreferenceData): PreferenceCreateData {
+    return {
+      ...(data as Record<string, unknown>),
+      userId,
+    } as PreferenceCreateData;
+  }
+
+  protected createByUserId(data: PreferenceCreateData): Promise<PreferenceRecord> {
+    return prisma.preference.create({ data });
+  }
+}
+
+const preferenceUpsertService = new PreferenceUpsertService();
+
 export async function getPreferences(userId: string) {
   return prisma.preference.findUnique({ where: { userId } });
 }
@@ -46,16 +76,5 @@ export async function savePreferences(userId: string, data: PreferenceData) {
     throw new Error('INVALID_WEIGHTS');
   }
 
-  const existing = await prisma.preference.findUnique({ where: { userId } });
-
-  if (existing) {
-    return prisma.preference.update({ where: { userId }, data });
-  }
-
-  return prisma.preference.create({
-    data: {
-      ...(data as Record<string, unknown>),
-      userId,
-    } as Parameters<typeof prisma.preference.create>[0]['data'],
-  });
+  return preferenceUpsertService.upsert(userId, data);
 }

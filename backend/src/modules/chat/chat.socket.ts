@@ -2,22 +2,41 @@ import { Server } from 'socket.io';
 import { sendMessage } from './chat.service';
 import { ClientToServerEvents, ServerToClientEvents, SendMessagePayload } from '../../types/socket';
 
+const chatSocketEvents = {
+  joinCanonical: 'joinRoom',
+  joinAlias: 'join',
+  sendCanonical: 'sendMessage',
+  sendAlias: 'send_message',
+  messageCanonical: 'message',
+  messageAlias: 'new_message',
+} as const;
+
 export default function registerChatSocket(
   io: Server<ClientToServerEvents, ServerToClientEvents>,
 ): void {
   io.on('connection', (socket) => {
-    socket.on('join', (conversationId: string) => {
+    const joinConversation = (conversationId: string) => {
       socket.join(conversationId);
-    });
+    };
 
-    socket.on('send_message', async ({ conversationId, senderId, content }: SendMessagePayload) => {
+    const handleSendMessage = async ({ conversationId, senderId, content }: SendMessagePayload) => {
       const msg = await sendMessage(conversationId, senderId, content);
-      io.to(conversationId).emit('new_message', {
+      const payload = {
         id: msg.id,
         senderId: msg.senderId,
         content: msg.content,
-        timestamp: msg.createdAt,
-      });
-    });
+        createdAt: msg.createdAt.toISOString(),
+        timestamp: msg.createdAt.toISOString(),
+      };
+
+      io.to(conversationId).emit(chatSocketEvents.messageCanonical, payload);
+      io.to(conversationId).emit(chatSocketEvents.messageAlias, payload);
+    };
+
+    socket.on(chatSocketEvents.joinCanonical, joinConversation);
+    socket.on(chatSocketEvents.joinAlias, joinConversation);
+
+    socket.on(chatSocketEvents.sendCanonical, handleSendMessage);
+    socket.on(chatSocketEvents.sendAlias, handleSendMessage);
   });
 }

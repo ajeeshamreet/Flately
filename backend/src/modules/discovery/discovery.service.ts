@@ -30,16 +30,27 @@ export async function getDiscoveryFeed(userId: string) {
   const matches = (await findMatchesForUser(userId)) as MatchCandidate[];
   const filtered = matches.filter((m) => !excludedUserIds.includes(m.userId));
 
+  const filteredUserIds = filtered.map((match) => match.userId);
+
+  const [profiles, preferences] = await Promise.all([
+    prisma.profile.findMany({
+      where: { userId: { in: filteredUserIds } },
+      include: { user: true },
+    }),
+    prisma.preference.findMany({
+      where: { userId: { in: filteredUserIds } },
+    }),
+  ]);
+
+  const profileByUserId = new Map(profiles.map((profile) => [profile.userId, profile]));
+  const preferenceByUserId = new Map(
+    preferences.map((preference) => [preference.userId, preference]),
+  );
+
   const enrichedProfiles = await Promise.all(
     filtered.map(async (match) => {
-      const profile = await prisma.profile.findUnique({
-        where: { userId: match.userId },
-        include: { user: true },
-      });
-
-      const preference = await prisma.preference.findUnique({
-        where: { userId: match.userId },
-      });
+      const profile = profileByUserId.get(match.userId);
+      const preference = preferenceByUserId.get(match.userId) ?? null;
 
       if (!profile) {
         return null;

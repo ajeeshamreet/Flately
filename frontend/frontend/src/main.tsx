@@ -11,17 +11,18 @@ import { store } from './app/store'
 import { router } from './app/router'
 import AuthSync from './features/auth/AuthSync'
 import { Provider } from 'react-redux'
+import { runtimeConfig } from './config/runtimeConfig'
 
 // import { createRoot } from 'react-dom/client'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Auth0Provider
-    domain="dev-aobtnrv6g50bmj1a.us.auth0.com"
-    clientId='2Pz3Q6dir2WRg5lDLW8ucrmo3HG92cOR'
+    domain={runtimeConfig.auth0Domain}
+    clientId={runtimeConfig.auth0ClientId}
     authorizationParams={{
       redirect_uri: window.location.origin,
-      audience: "http://localhost:4000"
+      audience: runtimeConfig.auth0Audience
     }}
     >
       <Provider store={store}>

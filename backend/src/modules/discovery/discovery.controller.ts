@@ -8,22 +8,14 @@ function isSwipeAction(value: unknown): value is 'like' | 'dislike' {
 }
 
 export async function getFeed(req: AuthRequest, res: Response): Promise<void> {
-  const userId = req.userId;
-  if (!userId) {
-    res.status(401).json({ message: 'Unauthorized' });
-    return;
-  }
+  const userId = req.userId as string;
 
   const feed = await getDiscoveryFeed(userId);
   res.json(feed);
 }
 
 export async function swipe(req: AuthRequest, res: Response): Promise<void> {
-  const userId = req.userId;
-  if (!userId) {
-    res.status(401).json({ message: 'Unauthorized' });
-    return;
-  }
+  const userId = req.userId as string;
 
   const body = req.body as Record<string, unknown>;
   const toUserId = body.toUserId;

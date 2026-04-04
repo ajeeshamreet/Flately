@@ -2,6 +2,7 @@
 // import { useAuth0 } from "@auth0/auth0-react";
 
 import axios from "axios";
+import { runtimeConfig } from '@/config/runtimeConfig';
 
 /**
  * INTENT: Centralized API client for all backend requests
@@ -21,7 +22,7 @@ import axios from "axios";
 
 
 const api = axios.create({
-    baseURL: 'http://localhost:4000',
+    baseURL: runtimeConfig.apiBaseUrl,
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
@@ -54,16 +55,3 @@ export async function apiRequest(path,options = { }, getToken){
 // see wr are eporting the default api , the axios , object , inc ase we need it afterwarsds 
 
 export default api;
-//         return response.data;
-//         const res= await fetch(`http://localhost:4000${path}`, {
-//             ...options,
-//             headers: {
-//                 "Content-Type": "application/json",
-//                 Authorization: `Bearer ${token}`,
-//             },
-//         });
-
-//         const data = await res.json();
-//         if (!res.ok) {throw data };
-//         return data;
-// }

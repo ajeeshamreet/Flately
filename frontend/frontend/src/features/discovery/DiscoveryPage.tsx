@@ -1,34 +1,44 @@
 // @ts-nocheck
 import { useEffect, useState } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
-import { apiRequest } from '@/services/api'
+import { connectToProfile, fetchDiscoveryFeed } from './discovery.transport'
 
-const DEMO_PROFILES = [
-  { id: '1', name: 'Alex Chen', age: 26, occupation: 'UX Designer', score: 92, img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBl8S4G5HYkQXeUmvA0eG5nQZm4zRRGdvYf9ZcGLMyH2oFBsO2matVvTI0xpitgvkp2wKE1TIa6spbG-A8LVOciFbNKQraztVsts0HYDEcOeSLQVZ0YYPYFlYv8GBiny8jYTWpEtS7OWP9b16hJiYiyDmxfVT831EccAIXqpe_UnoGPL3QJV3BX_YLXpmsv6TTT0tVMJNbAQpVXncvm1yFrFnzPXEUQqxSiXXjcs0M1725LbqSYCTPONH2Eo-uZBKYuzT4e0_QYpg', bio: 'Quiet professional looking for a clean, modern space. I work from home 2 days a week and usually spend weekends hiking or at coffee shops. Early riser, respectful of boundaries, and always pay rent on time.', budget: '$1,200 - $1,500', moveIn: 'Oct 1st, 2023', duration: '12 Months+', location: 'Williamsburg', city: 'Brooklyn, NY', school: 'NYU', tags: ['Vegetarian', 'Early Bird', 'Board Games', 'Cyclist'], cleanliness: 3, guests: 'RARELY', pets: 'NONE', smoking: 'NEVER' },
-  { id: '2', name: 'Sarah Jones', age: 28, occupation: 'Architect', score: 88, img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDQT-8dVxzTk03islnxYTEvFJT7RX4HG1DBc16SJMm7pviHawOUO8OeZlJPNig-jgl5XL49hj5gN5Fw4D-8S_yuRcqVT1ioXMF5FCNfs-vMpzwilIgwlwiciLHiEpN8hxu6NddWA16tNcK0SRKBgVULQMYTI-CIaldyzvhlGYFztjDE6RdPixRSZ5lTu7u_3tOk_7oteQELQvnZHnWjnRAZspxca93LNJHmYfAQul9JIdSgGVLF84kxBSZc-0H-jP5fVmtAkgPlrw' },
-  { id: '3', name: 'Mike Ross', age: 31, occupation: 'Software Engineer', score: 85, img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBsxI_wJveLVo1DqbElkBnjKCS4iI9BublEUTeeHdpUjY20zlYH8EahSikYGmfN21hwxWaR4ogSj7It00ec_1jAAlLeOOiFqdVLXm8uBPq9hjFduUd5r2cPeETfHWsW0-xdB4uIunVSPurZk1QNQTvtzi9pzrV7xsTOpKTpWw_FtVL-3WxunyTN3LuCxVkhcidYdorZzrGskuADwfd_oqcybE2-T62jLD9UI-uFEQNAWvdh0yVwokDOpcICZJ8s9cv4Ison3fGQSQ' },
-  { id: '4', name: 'Emily Blunt', age: 25, occupation: 'Marketing', score: 82, img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAAq41sfGKXQEkE467XcmYd93FqtXSmHWfQpCPH32LfF3xaxMmKNe2vcWyh_ZdCY3MEq8hlqU1ndVotVCyZe-8Kyr75tsQmPDf5LqKXRTsdJghYmpIVzOIz6bwKX-crRCroNW52QPFIh9dCoH-Qz13e_LLyVg5J14c4U4e1oVDy_3_LeqZu6_ufnctmxtMWU9QImCz79q3uCvdprruRlhaKcuDIRECbLi5VQ8efgDT2DliRdzOLKsj-veka33ErkxkheRo4z-_Wrg' },
-  { id: '5', name: 'David Kim', age: 29, occupation: 'Chef', score: 79, img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBcdg6B-rya0JwR7nG8lU0w9f9yWOxsegF-FCKB6y3Tsn2CawL_3f9uIOIodcZnTdqmw6pLVeOFbVm1TBCiHmtwUaHD4E9fIz_lPiaDuA0duOCaxVj4PC5f5XlncKCmXyKLzFXBIZhqzGtpF3P5fQk5kG5NlBzgsfOMe3op8_d-JHKzrg0J1pEZziXMzHMK-xtdQbqIUH8LAQ2tNxaoTSglvm3lhubxoGEa3BTKdO71-lkDEItE4nDcemLOc-Y8TVwnwg8giGVQiw' },
-]
 
 export default function DiscoveryPage() {
   const { getAccessTokenSilently } = useAuth0()
-  const [profiles, setProfiles] = useState(DEMO_PROFILES)
-  const [selectedId, setSelectedId] = useState(DEMO_PROFILES[0].id)
+  const [profiles, setProfiles] = useState([])
+  const [selectedId, setSelectedId] = useState('')
   const selected = profiles.find(p => p.id === selectedId) || profiles[0]
 
   useEffect(() => {
     let isMounted = true
-    apiRequest('/discovery', {}, getAccessTokenSilently)
-      .then(data => { if (isMounted && data?.length > 0) setProfiles(data) })
+    fetchDiscoveryFeed(getAccessTokenSilently)
+      .then(data => {
+        if (isMounted && data?.length > 0) {
+          setProfiles(data)
+          setSelectedId(data[0].id)
+        }
+      })
       .catch(() => {})
     return () => { isMounted = false }
   }, [getAccessTokenSilently])
 
-  const handlePass = () => { setProfiles(profiles.filter(p => p.id !== selectedId)); setSelectedId(profiles[1]?.id || '') }
+  const handlePass = () => {
+    const remaining = profiles.filter(p => p.id !== selectedId)
+    setProfiles(remaining)
+    setSelectedId(remaining[0]?.id || '')
+  }
   const handleConnect = async () => {
-    try { await apiRequest(`/matches/connect/${selectedId}`, { method: 'POST' }, getAccessTokenSilently) } catch {}
+    try { await connectToProfile(selectedId, getAccessTokenSilently) } catch {}
     handlePass()
+  }
+
+  if (!selected) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-white text-sm text-gray-500">
+        No profiles available right now.
+      </div>
+    )
   }
 
   return (
