@@ -1,5 +1,10 @@
 # 🏠 Flately - Complete Technical Documentation
 
+> Note: This file includes historical snapshots from earlier architecture phases.
+> For current production flow and auth behavior, use `docs/product-user-flow.md` and `docs/frontend-guide.md` as source of truth.
+> Latest runtime QA evidence for manual-auth flow is documented in `docs/manual-auth-end-to-end-verification.md`.
+> Full implementation handoff for new developers is documented in `docs/complete-implementation-handoff.md`.
+
 > **Version:** 1.0.0  
 > **Last Updated:** February 3, 2026  
 > **Purpose:** Tinder-like roommate matching application  
@@ -39,7 +44,7 @@ Flately is a **modern roommate-finding application** that works like Tinder for 
 
 | Feature | Description |
 |---------|-------------|
-| 🔐 **Authentication** | Auth0 OAuth2 with JWT tokens |
+| 🔐 **Authentication** | Manual email/password with JWT tokens |
 | 👤 **Profiles** | Age, occupation, city, photos, lifestyle |
 | 🎯 **Preferences** | Budget, cleanliness, sleep schedule, habits |
 | 🔍 **Discovery** | Swipeable cards with compatibility scores |
@@ -50,7 +55,7 @@ Flately is a **modern roommate-finding application** that works like Tinder for 
 ### User Journey
 
 ```
-1. Landing Page → Auth0 Login
+1. Landing Page -> Questionnaire -> Login/Signup
         ↓
 2. Onboarding (5 steps)
    - Basic Info (name, age, gender)
@@ -94,6 +99,7 @@ Flately is a **modern roommate-finding application** that works like Tinder for 
 │   MongoDB       │    │      Auth0          │
 │   Atlas         │    │   (OAuth2/JWT)      │
 └─────────────────┘    └─────────────────────┘
+
 ```
 
 ### Data Flow

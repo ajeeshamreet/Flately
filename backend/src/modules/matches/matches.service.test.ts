@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { prismaMock } = vi.hoisted(() => ({
+const { prismaMock, findMatchesForUserMock } = vi.hoisted(() => ({
   prismaMock: {
     match: { findMany: vi.fn(), upsert: vi.fn() },
     swipe: { findUnique: vi.fn() },
@@ -17,10 +17,15 @@ const { prismaMock } = vi.hoisted(() => ({
       findUnique: vi.fn(),
     },
   },
+  findMatchesForUserMock: vi.fn(),
 }));
 
 vi.mock('../../config/prisma', () => ({
   default: prismaMock,
+}));
+
+vi.mock('../matching/matching.service', () => ({
+  findMatchesForUser: findMatchesForUserMock,
 }));
 
 import { checkAndCreateMatch, getMyMatches } from './matches.service';
@@ -163,6 +168,11 @@ describe('getMyMatches', () => {
       },
     ]);
 
+    findMatchesForUserMock.mockResolvedValue([
+      { userId: 'user-2', score: 93 },
+      { userId: 'user-4', score: 71 },
+    ]);
+
     const result = await getMyMatches('viewer-1');
 
     expect(result).toEqual([
@@ -183,7 +193,7 @@ describe('getMyMatches', () => {
           budgetMax: 1500,
           tags: ['Has Room', 'Pet Friendly', 'Non-Smoker'],
         },
-        compatibility: 85,
+        compatibility: 93,
         lastMessage: 'Latest hello',
         conversationId: 'conversation-1',
       },
@@ -204,11 +214,14 @@ describe('getMyMatches', () => {
           budgetMax: 0,
           tags: ['Non-Smoker', 'Artist'],
         },
-        compatibility: 85,
+        compatibility: 71,
         lastMessage: null,
         conversationId: null,
       },
     ]);
+
+    expect(findMatchesForUserMock).toHaveBeenCalledTimes(1);
+    expect(findMatchesForUserMock).toHaveBeenCalledWith('viewer-1');
   });
 
   it('uses batched findMany enrichment and avoids per-match findUnique fan-out', async () => {
@@ -260,6 +273,12 @@ describe('getMyMatches', () => {
       { id: 'conversation-13', matchId: 'match-13', messages: [] },
     ]);
 
+    findMatchesForUserMock.mockResolvedValue([
+      { userId: 'user-7', score: 91 },
+      { userId: 'user-8', score: 84 },
+      { userId: 'user-9', score: 77 },
+    ]);
+
     await getMyMatches('viewer-2');
 
     expect(prismaMock.match.findMany).toHaveBeenCalledTimes(1);
@@ -295,5 +314,7 @@ describe('getMyMatches', () => {
     expect(prismaMock.profile.findUnique).not.toHaveBeenCalled();
     expect(prismaMock.preference.findUnique).not.toHaveBeenCalled();
     expect(prismaMock.conversation.findUnique).not.toHaveBeenCalled();
+    expect(findMatchesForUserMock).toHaveBeenCalledTimes(1);
+    expect(findMatchesForUserMock).toHaveBeenCalledWith('viewer-2');
   });
 });

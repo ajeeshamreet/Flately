@@ -1,0 +1,135 @@
+import { FormEvent, useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useAuth } from '@/features/auth/AuthProvider'
+
+export function SignupPage() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { signUp, isLoading, isAuthenticated } = useAuth()
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const source = searchParams.get('source')
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/app', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+    try {
+      await signUp(name, email, password)
+      navigate('/app/onboarding', { replace: true })
+    } catch (submitError) {
+      setError((submitError as Error).message || 'Unable to sign up')
+    }
+  }
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-canvas">
+      <div className="pointer-events-none absolute right-[-10%] top-[-24%] h-115 w-115 rounded-full bg-[radial-gradient(circle,rgba(15,76,92,0.16),rgba(15,76,92,0))]" />
+      <div className="mx-auto grid min-h-screen w-full max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_440px]">
+        <section className="hidden lg:block">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary">Start Matching</p>
+          <h1 className="mt-4 max-w-xl text-5xl font-semibold leading-tight text-slate-900">
+            Create your account and unlock roommate matches built around your lifestyle.
+          </h1>
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600">
+            Build your profile once and get ranked recommendations, safer conversations, and better fit from day one.
+          </p>
+        </section>
+
+        <form
+          className="w-full rounded-2xl border border-neutral-border bg-surface p-6 shadow-[0_28px_70px_-50px_rgba(15,76,92,0.55)] md:p-8"
+          onSubmit={handleSubmit}
+        >
+          <h2 className="text-2xl font-semibold text-slate-900">Create account</h2>
+          <p className="mt-2 text-sm text-slate-600">Use your email and password to create your account.</p>
+
+          {source === 'questionnaire' ? (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              Questionnaire answers were saved and will prefill onboarding after signup.
+            </div>
+          ) : null}
+
+          <label htmlFor="signup-name" className="mt-6 block text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+            Full name
+          </label>
+          <input
+            id="signup-name"
+            type="text"
+            required
+            autoComplete="name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-neutral-border bg-white px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            placeholder="Your name"
+          />
+
+          <label htmlFor="signup-email" className="mt-4 block text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+            Email
+          </label>
+          <input
+            id="signup-email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-neutral-border bg-white px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            placeholder="name@email.com"
+          />
+
+          <label htmlFor="signup-password" className="mt-4 block text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+            Password
+          </label>
+          <input
+            id="signup-password"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="mt-2 w-full rounded-xl border border-neutral-border bg-white px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            placeholder="At least 8 characters"
+          />
+
+          {error ? (
+            <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="mt-6 w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-60"
+          >
+            {isLoading ? 'Creating account...' : 'Create account'}
+          </button>
+
+          <p className="mt-5 text-sm text-slate-600">
+            Already have an account?{' '}
+            <Link to="/login" className="font-semibold text-primary hover:text-primary-dark">
+              Sign in
+            </Link>
+          </p>
+
+          {source === 'questionnaire' ? (
+            <p className="mt-2 text-sm text-slate-600">
+              Want to adjust your answers?{' '}
+              <Link to="/start" className="font-semibold text-primary hover:text-primary-dark">
+                Return to questionnaire
+              </Link>
+            </p>
+          ) : null}
+        </form>
+      </div>
+    </div>
+  )
+}

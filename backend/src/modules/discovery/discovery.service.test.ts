@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { prismaMock, findMatchesForUserMock, checkAndCreateMatchMock } = vi.hoisted(() => ({
+const { prismaMock, findMatchesForUserMock, assertOnboardingCompletedMock, checkAndCreateMatchMock } = vi.hoisted(() => ({
   prismaMock: {
     swipe: { findMany: vi.fn(), upsert: vi.fn() },
     profile: {
@@ -13,6 +13,7 @@ const { prismaMock, findMatchesForUserMock, checkAndCreateMatchMock } = vi.hoist
     },
   },
   findMatchesForUserMock: vi.fn(),
+  assertOnboardingCompletedMock: vi.fn(),
   checkAndCreateMatchMock: vi.fn(),
 }));
 
@@ -22,6 +23,7 @@ vi.mock('../../config/prisma', () => ({
 
 vi.mock('../matching/matching.service', () => ({
   findMatchesForUser: findMatchesForUserMock,
+  assertOnboardingCompleted: assertOnboardingCompletedMock,
 }));
 
 vi.mock('../matches/matches.service', () => ({
@@ -190,7 +192,20 @@ describe('getDiscoveryFeed', () => {
     expect(prismaMock.profile.findMany).toHaveBeenCalledTimes(1);
     expect(prismaMock.profile.findMany).toHaveBeenCalledWith({
       where: { userId: { in: ['user-7', 'user-8', 'user-9'] } },
-      include: { user: true },
+      select: {
+        userId: true,
+        age: true,
+        gender: true,
+        occupation: true,
+        city: true,
+        hasRoom: true,
+        user: {
+          select: {
+            name: true,
+            picture: true,
+          },
+        },
+      },
     });
 
     expect(prismaMock.preference.findMany).toHaveBeenCalledTimes(1);
@@ -219,6 +234,9 @@ describe('swipeUser', () => {
     checkAndCreateMatchMock.mockResolvedValue({ matched: true });
 
     const result = await swipeUser('viewer-1', 'user-2', 'superlike');
+
+    expect(assertOnboardingCompletedMock).toHaveBeenCalledTimes(1);
+    expect(assertOnboardingCompletedMock).toHaveBeenCalledWith('viewer-1');
 
     expect(prismaMock.swipe.upsert).toHaveBeenCalledTimes(1);
     expect(prismaMock.swipe.upsert).toHaveBeenCalledWith({
@@ -253,6 +271,9 @@ describe('swipeUser', () => {
 
     const result = await swipeUser('viewer-1', 'user-3', 'superlike');
 
+    expect(assertOnboardingCompletedMock).toHaveBeenCalledTimes(1);
+    expect(assertOnboardingCompletedMock).toHaveBeenCalledWith('viewer-1');
+
     expect(prismaMock.swipe.upsert).toHaveBeenCalledTimes(1);
     expect(prismaMock.swipe.upsert).toHaveBeenCalledWith({
       where: {
@@ -285,6 +306,9 @@ describe('swipeUser', () => {
 
     const result = await swipeUser('viewer-1', 'user-4', 'skip');
 
+    expect(assertOnboardingCompletedMock).toHaveBeenCalledTimes(1);
+    expect(assertOnboardingCompletedMock).toHaveBeenCalledWith('viewer-1');
+
     expect(prismaMock.swipe.upsert).toHaveBeenCalledTimes(1);
     expect(prismaMock.swipe.upsert).toHaveBeenCalledWith({
       where: {
@@ -303,5 +327,14 @@ describe('swipeUser', () => {
 
     expect(checkAndCreateMatchMock).not.toHaveBeenCalled();
     expect(result).toEqual({ swipe: persistedSwipe, matched: false });
+  });
+
+  it('throws ONBOARDING_REQUIRED when onboarding is incomplete', async () => {
+    assertOnboardingCompletedMock.mockRejectedValue(new Error('ONBOARDING_REQUIRED'));
+
+    await expect(swipeUser('viewer-1', 'user-4', 'skip')).rejects.toThrow('ONBOARDING_REQUIRED');
+
+    expect(prismaMock.swipe.upsert).not.toHaveBeenCalled();
+    expect(checkAndCreateMatchMock).not.toHaveBeenCalled();
   });
 });

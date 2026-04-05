@@ -9,7 +9,7 @@
 - **Node.js** ≥ 18 (recommended 22.x)
 - **npm** ≥ 9
 - **MongoDB Atlas** account (or a local MongoDB instance)
-- **Auth0** tenant configured (see Auth0 Setup below)
+- Backend JWT secret for local development
 
 ---
 
@@ -25,7 +25,7 @@ cd backend
 npm install
 
 # Install frontend dependencies
-cd ../frontend/frontend
+cd ../frontend
 npm install
 ```
 
@@ -38,8 +38,8 @@ Create `backend/.env`:
 ```env
 PORT=4000
 DATABASE_URL="mongodb+srv://<username>:<password>@<cluster>.mongodb.net/flately"
-AUTH0_DOMAIN=<your-auth0-domain>.us.auth0.com
-AUTH0_AUDIENCE=http://localhost:4000
+JWT_ACCESS_SECRET="<min-16-char-secret>"
+JWT_ACCESS_EXPIRES_IN="1h"
 FRONTEND_URL="http://localhost:5173"
 ```
 
@@ -59,36 +59,18 @@ npm run seed:reset   # Removes all seed data
 
 ---
 
-## 3. Auth0 Setup
+## 3. Frontend Environment
 
-### Create Auth0 Application
-
-1. Go to [Auth0 Dashboard](https://manage.auth0.com/) → Applications → Create Application
-2. Type: **Single Page Application**
-3. Configure:
-   - **Allowed Callback URLs**: `http://localhost:5173`
-   - **Allowed Logout URLs**: `http://localhost:5173`
-   - **Allowed Web Origins**: `http://localhost:5173`
-
-### Create Auth0 API
-
-1. Go to Auth0 Dashboard → APIs → Create API
-2. **Identifier (audience)**: `http://localhost:4000`
-3. **Signing Algorithm**: RS256
-
-### Frontend `.env.example`
-
-Create `frontend/frontend/.env.example` (and copy values into `frontend/frontend/.env` for local development):
+Create `frontend/.env.example` (and copy values into `frontend/.env` for local development):
 
 ```env
 VITE_API_BASE_URL=http://localhost:4000
 VITE_SOCKET_URL=http://localhost:4000
-VITE_AUTH0_DOMAIN=<your-auth0-domain>.us.auth0.com
-VITE_AUTH0_CLIENT_ID=<your-auth0-client-id>
-VITE_AUTH0_AUDIENCE=http://localhost:4000
+VITE_CLOUDINARY_CLOUD_NAME=<cloud-name>
+VITE_CLOUDINARY_UPLOAD_PRESET=<upload-preset>
 ```
 
-Auth0 and transport values are loaded at runtime from `frontend/frontend/src/config/runtimeConfig.ts` and consumed by `main.tsx`, API client, and socket client.
+Runtime values are loaded from `frontend/src/config/runtimeConfig.ts` and consumed by `main.tsx`, API client, and socket client.
 
 ---
 
@@ -105,7 +87,7 @@ npm run dev
 ### Terminal 2 — Frontend
 
 ```bash
-cd frontend/frontend
+cd frontend
 npm run dev
 # Output: Local: http://localhost:5173
 ```
@@ -137,19 +119,17 @@ flately-full_stack/
 │       ├── modules/            # Feature modules (controller/service/routes)
 │       └── types/              # TypeScript interfaces
 ├── frontend/
-│   └── frontend/
-│       ├── index.html          # Entry HTML
-│       ├── package.json        # Frontend dependencies
-│       ├── vite.config.js      # Vite configuration
-│       └── src/
-│           ├── main.tsx        # App entry (Auth0 + Redux + Router)
-│           ├── index.css       # Design tokens
-│           ├── app/            # Router, store, layout
-│           ├── pages/          # Page components
-│           ├── features/       # Feature modules (slice + page)
-│           ├── components/     # Shared UI components
-│           ├── services/       # API client
-│           └── types/          # TypeScript interfaces
+│   ├── index.html              # Entry HTML
+│   ├── package.json            # Frontend dependencies
+│   ├── vite.config.ts          # Vite configuration
+│   └── src/
+│       ├── main.tsx            # App entry (Redux + AuthProvider + Router)
+│       ├── index.css           # Design tokens
+│       ├── app/                # Router, store, layout
+│       ├── pages/              # Page components
+│       ├── features/           # Feature modules
+│       ├── services/           # API transports
+│       └── types/              # TypeScript interfaces
 └── docs/                       # This documentation
 ```
 
@@ -172,7 +152,7 @@ flately-full_stack/
 | `seed:reset` | `tsx prisma/seed.ts --reset` | Remove demo data |
 | `typecheck` | `tsc --noEmit` | Type checking only |
 
-### Frontend (`cd frontend/frontend`)
+### Frontend (`cd frontend`)
 
 | Script | Command | Purpose |
 |---|---|---|
@@ -204,7 +184,7 @@ flately-full_stack/
 
 1. **MongoDB + Prisma** — Chosen for flexible schema and fast prototyping. Prisma provides type-safe queries without native MongoDB driver boilerplate.
 
-2. **Auth0** — Delegated authentication eliminates the need to build password handling, MFA, social login, and token management from scratch.
+2. **JWT-based manual auth** — Email/password flows are handled directly by backend auth endpoints and local session state.
 
 3. **Redux Toolkit** — Centralized state management for authenticated user state, discovery feed, matches, and chat conversations across all pages.
 

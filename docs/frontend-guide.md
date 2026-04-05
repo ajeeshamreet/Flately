@@ -1,10 +1,36 @@
 # Flately — Frontend Architecture & Component Guide
 
+> Canonical journey reference: `docs/product-user-flow.md`.
+> This file focuses on frontend implementation details.
+
 > **Framework**: React 19 + Vite 7 + TypeScript  
 > **Styling**: TailwindCSS v4 (with `@import "tailwindcss"` + `@theme` directive)  
 > **State**: Redux Toolkit  
 > **Routing**: React Router DOM v6  
-> **Auth**: Auth0 React SDK
+> **Auth**: Manual email/password with backend JWT session
+
+---
+
+## 0. Product User Flow Reference
+
+Primary source of truth for user-state transitions and route guards:
+
+- `docs/product-user-flow.md`
+
+Implementation contract summary:
+
+- Public routes: `/`, `/start`, `/signup`, `/login`
+- Protected routes: `/app/*`
+- Guard behavior:
+  - unauthenticated -> `/login`
+  - authenticated + incomplete onboarding -> `/app/onboarding`
+  - authenticated + completed onboarding -> app surfaces
+- Supported auth endpoints:
+  - `POST /auth/signup`
+  - `POST /auth/login`
+- Unsupported auth endpoints:
+  - no OAuth provider callbacks
+  - no `/auth/google/*`
 
 ---
 

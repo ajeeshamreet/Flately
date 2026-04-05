@@ -1,21 +1,24 @@
 import { Request } from 'express';
+import { JwtPayload } from 'jsonwebtoken';
 
-export interface Auth0User {
+export interface AuthUser {
   sub: string;
-  email: string;
-  name: string;
-  picture: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+}
+
+export interface AuthTokenPayload extends JwtPayload {
+  sub?: string;
+  email?: string;
+  name?: string;
+  picture?: string;
 }
 
 export type AuthRequest = Request & {
-  user?: Auth0User;
+  user?: AuthUser;
   userId?: string;
   auth?: {
-    payload?: {
-      sub?: string;
-      email?: string;
-      name?: string;
-      picture?: string;
-    };
+    payload?: AuthTokenPayload;
   };
 };

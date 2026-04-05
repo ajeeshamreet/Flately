@@ -10,9 +10,9 @@ router.get(
 	checkJwt,
 	...withAuthenticatedController(getMatches, {
 		domainErrors: {
-			PROFILE_OR_PREFERENCES_MISSING: {
-				status: 400,
-				body: { message: 'Complete profile and preferences first' },
+			ONBOARDING_REQUIRED: {
+				status: 403,
+				body: { message: 'Onboarding completion is required' },
 			},
 		},
 		fallbackError: { status: 500, body: { message: 'Matching failed' } },

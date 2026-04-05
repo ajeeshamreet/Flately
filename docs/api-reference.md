@@ -8,13 +8,78 @@
 
 ## Authentication
 
-All protected endpoints use the Auth0 JWT middleware pipeline:
+All protected endpoints use local JWT validation middleware:
 
 ```
 Authorization: Bearer <access_token>
 ```
 
-The token is obtained via `getAccessTokenSilently()` from `@auth0/auth0-react` on the frontend. The middleware validates against Auth0's JWKS endpoint and extracts `req.userId = req.auth.payload.sub`.
+Tokens are issued by:
+
+- `POST /auth/signup`
+- `POST /auth/login`
+
+### `POST /auth/signup`
+
+Create a manual auth account (email/password).
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "Password123!",
+  "name": "John Doe"
+}
+```
+
+**Response (201):**
+```json
+{
+  "accessToken": "<jwt>",
+  "user": {
+    "id": "665f1a2b3c4d5e6f7a8b9c0d",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "picture": null
+  }
+}
+```
+
+**Error Responses:**
+- `400` — `EMAIL_AND_PASSWORD_REQUIRED` or `PASSWORD_TOO_SHORT`
+- `409` — `EMAIL_ALREADY_EXISTS`
+- `500` — `AUTH_STORAGE_CONFLICT`
+
+### `POST /auth/login`
+
+Authenticate an existing manual auth account.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "Password123!"
+}
+```
+
+**Response (200):**
+```json
+{
+  "accessToken": "<jwt>",
+  "user": {
+    "id": "665f1a2b3c4d5e6f7a8b9c0d",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "picture": null
+  }
+}
+```
+
+**Error Responses:**
+- `400` — `EMAIL_AND_PASSWORD_REQUIRED`
+- `401` — `INVALID_CREDENTIALS`
+
+The middleware validates the token with `JWT_ACCESS_SECRET` and extracts `req.userId` from `payload.sub` when it is an ObjectId-compatible value.
 
 ---
 
@@ -35,26 +100,26 @@ No auth required. Returns server status.
 
 ### `GET /users/me`
 
-Get or create the authenticated user's record. Called automatically by `AuthSync` on login.
+Get or create the authenticated user's record. Called automatically after a successful login/signup session bootstrap.
 
 **Auth**: Required  
 **Middleware**: `checkJwt → attachUserId → getUserProfile`
 
 **Logic:**
 1. Extract `sub`, `email`, `name`, `picture` from JWT payload
-2. Look up User by `auth0id == payload.sub`
-3. If not found → create new User
-4. Return User object
+2. Look up User by `id == payload.sub`
+3. If not found and email exists -> create new User by email
+4. Return a sanitized user object (never returns `passwordHash`)
 
 **Response (200):**
 ```json
 {
   "id": "665f1a2b3c4d5e6f7a8b9c0d",
-  "auth0id": "auth0|abc123def456",
   "email": "user@example.com",
   "name": "John Doe",
   "picture": "https://lh3.googleusercontent.com/...",
-  "createdAt": "2026-03-20T10:30:00.000Z"
+  "createdAt": "2026-03-20T10:30:00.000Z",
+  "updatedAt": "2026-03-20T10:35:00.000Z"
 }
 ```
 
@@ -212,6 +277,11 @@ If not → returns `400 { error: "Weights must sum to 100" }`
 Compute compatibility scores for the authenticated user against all other eligible users.
 
 **Auth**: Required  
+**Onboarding Gate**: Profile + preferences must exist and `onboardingCompleted` must be `true`.
+
+**Error Responses:**
+- `403 { "message": "Onboarding completion is required" }` — Onboarding is incomplete
+
 **Response (200):**
 ```json
 [
@@ -222,9 +292,6 @@ Compute compatibility scores for the authenticated user against all other eligib
 ```
 
 Sorted by score descending.
-
-**Error Responses:**
-- `400 { message: "Complete profile and preferences first" }` — Profile or preferences missing
 
 **Algorithm:** See `docs/matching-algorithm.md` for full details.
 
@@ -241,6 +308,11 @@ Compatibility contract:
 - Legacy alias: `GET /discovery` (same handler, kept for backward compatibility)
 
 **Auth**: Required  
+**Onboarding Gate**: Profile + preferences must exist and `onboardingCompleted` must be `true`.
+
+**Error Responses:**
+- `403 { "message": "Onboarding completion is required" }` — Onboarding is incomplete
+
 **Response (200):**
 ```json
 [
@@ -291,6 +363,11 @@ Compatibility contract:
 - Legacy alias: `POST /matches/connect/:toUserId` (maps to a `like` action)
 
 **Auth**: Required  
+**Onboarding Gate**: Profile + preferences must exist and `onboardingCompleted` must be `true`.
+
+**Error Responses:**
+- `403 { "message": "Onboarding completion is required" }` — Onboarding is incomplete
+
 **Request Body:**
 ```json
 {
@@ -328,6 +405,11 @@ Alias response note:
 Get all confirmed matches for the authenticated user with enriched data.
 
 **Auth**: Required  
+**Onboarding Gate**: Profile + preferences must exist and `onboardingCompleted` must be `true`.
+
+**Error Responses:**
+- `403 { "message": "Onboarding completion is required" }` — Onboarding is incomplete
+
 **Response (200):**
 ```json
 [
@@ -362,7 +444,7 @@ Get all confirmed matches for the authenticated user with enriched data.
 4. Generate tags (same algorithm as discovery, max 3)
 5. Return sorted by `createdAt` descending
 
-**Note:** `compatibility` is currently hardcoded to `85` in the service. This should be computed dynamically.
+**Note:** `compatibility` is computed dynamically from the matching service.
 
 ---
 

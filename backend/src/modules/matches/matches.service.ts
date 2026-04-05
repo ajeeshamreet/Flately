@@ -1,4 +1,5 @@
 import prisma from '../../config/prisma';
+import { findMatchesForUser } from '../matching/matching.service';
 
 interface MatchCheckResult {
   matched: boolean;
@@ -67,6 +68,11 @@ export async function getMyMatches(userId: string) {
   );
   const matchIds = matches.map((match) => match.id);
 
+  const compatibilityPairs = await findMatchesForUser(userId);
+  const compatibilityByUserId = new Map(
+    compatibilityPairs.map((pair) => [pair.userId, pair.score]),
+  );
+
   const [profiles, preferences, conversations] = await Promise.all([
     prisma.profile.findMany({
       where: { userId: { in: otherUserIds } },
@@ -119,7 +125,7 @@ export async function getMyMatches(userId: string) {
             tags: generateMatchTags(profile, preference),
           }
         : null,
-      compatibility: 85,
+      compatibility: compatibilityByUserId.get(otherUserId) ?? 0,
       lastMessage: conversation?.messages[0]?.content || null,
       conversationId: conversation?.id || null,
     };

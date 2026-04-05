@@ -11,12 +11,35 @@ import matchingRoutes from './modules/matching/matching.routes';
 import matchRoutes from './modules/matches/matches.routes';
 import discoveryRoutes from './modules/discovery/discovery.routes';
 import chatRoutes from './modules/chat/chat.routes';
+import authRoutes from './modules/auth/auth.routes';
+
+function buildAllowedOrigins(): string[] {
+  const defaults = [
+    env.FRONTEND_URL,
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5174',
+  ];
+
+  return [...new Set(defaults.filter(Boolean))];
+}
 
 const app = express();
 app.use(helmet());
+
+const allowedOrigins = buildAllowedOrigins();
+
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   }),
 );
@@ -33,6 +56,7 @@ const limiter = rateLimit({
 
 app.use(limiter);
 app.use(express.json());
+app.use('/auth', authRoutes);
 app.use('/matching', matchingRoutes);
 app.use('/profiles', profileRoutes);
 app.use('/discovery', discoveryRoutes);

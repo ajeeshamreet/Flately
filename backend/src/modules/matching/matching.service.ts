@@ -57,6 +57,37 @@ type RankedMatch = {
   insertionOrder: number;
 };
 
+function isLegacyUpdatedAtError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const record = error as { code?: unknown; meta?: { field?: unknown } };
+  const code = record.code;
+  const field = record.meta?.field;
+
+  return code === 'P2032' && typeof field === 'string' && field.includes('updatedAt');
+}
+
+async function repairLegacyProfileTimestamps(): Promise<void> {
+  await prisma.$runCommandRaw({
+    update: 'Profile',
+    updates: [
+      {
+        q: {
+          $or: [{ updatedAt: null }, { updatedAt: { $exists: false } }],
+        },
+        u: {
+          $set: {
+            updatedAt: new Date(),
+          },
+        },
+        multi: true,
+      },
+    ],
+  });
+}
+
 function mapToCandidateShape(profile: ProfileRecord, preference: PreferenceRecord): CandidateShape {
   return {
     userId: profile.userId,
@@ -201,14 +232,36 @@ export async function findMatchesForUser(userId: string) {
   const userProfile = await prisma.profile.findUnique({ where: { userId } });
   const userPref = await prisma.preference.findUnique({ where: { userId } });
 
-  if (!userProfile || !userPref) {
-    throw new Error('PROFILE_OR_PREFERENCES_MISSING');
+  if (!userProfile || !userPref || !userProfile.onboardingCompleted) {
+    throw new Error('ONBOARDING_REQUIRED');
   }
 
-  const candidateProfiles = await prisma.profile.findMany({
-    where: { userId: { not: userId } },
-    include: { user: true },
-  });
+  let candidateProfiles: ProfileRecord[] = [];
+  try {
+    candidateProfiles = await prisma.profile.findMany({
+      where: { userId: { not: userId } },
+      select: {
+        userId: true,
+        city: true,
+        gender: true,
+      },
+    });
+  } catch (error) {
+    if (!isLegacyUpdatedAtError(error)) {
+      throw error;
+    }
+
+    await repairLegacyProfileTimestamps();
+
+    candidateProfiles = await prisma.profile.findMany({
+      where: { userId: { not: userId } },
+      select: {
+        userId: true,
+        city: true,
+        gender: true,
+      },
+    });
+  }
   const candidatePrefs = await prisma.preference.findMany();
   const viewerCandidate = mapToCandidateShape(userProfile, userPref);
   const viewerPreference = mapToPreferenceShape(userPref);
@@ -225,3 +278,12 @@ export async function findMatchesForUser(userId: string) {
 }
 
 export const findMatches = findMatchesForUser;
+
+export async function assertOnboardingCompleted(userId: string): Promise<void> {
+  const profile = await prisma.profile.findUnique({ where: { userId } });
+  const preference = await prisma.preference.findUnique({ where: { userId } });
+
+  if (!profile || !preference || !profile.onboardingCompleted) {
+    throw new Error('ONBOARDING_REQUIRED');
+  }
+}

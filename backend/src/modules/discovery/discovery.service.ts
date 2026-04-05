@@ -1,5 +1,6 @@
 import prisma from '../../config/prisma';
 import { checkAndCreateMatch } from '../matches/matches.service';
+import { assertOnboardingCompleted } from '../matching/matching.service';
 import { findMatchesForUser } from '../matching/matching.service';
 
 interface MatchCandidate {
@@ -35,7 +36,20 @@ export async function getDiscoveryFeed(userId: string) {
   const [profiles, preferences] = await Promise.all([
     prisma.profile.findMany({
       where: { userId: { in: filteredUserIds } },
-      include: { user: true },
+      select: {
+        userId: true,
+        age: true,
+        gender: true,
+        occupation: true,
+        city: true,
+        hasRoom: true,
+        user: {
+          select: {
+            name: true,
+            picture: true,
+          },
+        },
+      },
     }),
     prisma.preference.findMany({
       where: { userId: { in: filteredUserIds } },
@@ -93,6 +107,8 @@ function generateTags(profile: TaggableProfile, preference: TaggablePreference |
 }
 
 export async function swipeUser(fromUserId: string, toUserId: string, action: string) {
+  await assertOnboardingCompleted(fromUserId);
+
   // Normalize action: 'superlike' -> 'like', 'skip' -> 'dislike'
   const normalizedAction = action === 'superlike' ? 'like' : action === 'skip' ? 'dislike' : action;
 

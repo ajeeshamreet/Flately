@@ -1,8 +1,11 @@
 # Flately — System Architecture
 
+> Source-of-truth note: authentication and route-state behavior are defined in `docs/product-user-flow.md`.
+> This architecture file may include legacy snapshots retained for historical context.
+
 > **Version**: 2.4 COMMAND  
 > **Last Updated**: 2026-03-25  
-> **Stack**: TypeScript Full-Stack · MongoDB · Auth0 · Socket.IO
+> **Stack**: TypeScript Full-Stack · MongoDB · JWT Auth · Socket.IO
 
 ---
 
@@ -12,7 +15,7 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                         CLIENT (Browser)                        │
 │  React 19 + Vite 7 + Redux Toolkit + TailwindCSS v4            │
-│  Auth0 SPA SDK + Socket.IO Client + Framer Motion              │
+│  Manual Auth UI + Socket.IO Client + Framer Motion             │
 │  Port: 5173 (dev)                                               │
 └────────────────────┬──────────────────┬─────────────────────────┘
                      │ REST (Axios)     │ WebSocket (Socket.IO)
@@ -25,7 +28,7 @@
 │  Port: 4000                                                     │
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │  REST API    │  │  Socket.IO   │  │  Auth0 JWT Middleware │   │
+│  │  REST API    │  │  Socket.IO   │  │  JWT Middleware       │   │
 │  │  (7 routers) │  │  (chat ns)   │  │  (RS256 verification)│   │
 │  └──────┬───────┘  └──────┬───────┘  └──────────────────────┘   │
 │         │                 │                                      │
@@ -57,7 +60,7 @@
 | Express | ^5.2.1 | HTTP framework |
 | Prisma | ^6.12.0 / Client ^6.19.1 | ORM for MongoDB |
 | Socket.IO | ^4.8.3 | Real-time WebSocket |
-| Auth0 (express-oauth2-jwt-bearer) | ^1.7.3 | JWT validation |
+| jsonwebtoken | ^9.0.3 | JWT validation/signing |
 | Zod | ^3.23.8 | Runtime schema validation |
 | Helmet | ^8.1.0 | HTTP security headers |
 | cors | ^2.8.5 | Cross-origin resource sharing |
@@ -76,7 +79,7 @@
 | TailwindCSS | ^4.1.18 | CSS framework (v4 with `@import "tailwindcss"`) |
 | Redux Toolkit | ^2.11.2 | State management |
 | React Router DOM | ^6.28.0 | Client-side routing |
-| Auth0 React SDK | ^2.11.0 | Authentication |
+| Custom Auth Provider | internal | Session bootstrap and persistence |
 | Axios | ^1.13.2 | HTTP client |
 | Framer Motion | ^12.29.2 | Animations |
 | Socket.IO Client | ^4.8.3 | Real-time WebSocket |
@@ -90,72 +93,47 @@
 
 ---
 
-## 3. Authentication Flow (Auth0)
+## 3. Authentication Flow (Manual JWT)
 
 ```
-┌──────────┐     ┌───────────┐     ┌────────────┐     ┌──────────┐
-│  Browser  │────▶│  Auth0    │────▶│  Callback  │────▶│  App     │
-│  (Login)  │     │  Hosted   │     │  Redirect  │     │  /app    │
-└──────────┘     │  Login    │     │  (origin)  │     └────┬─────┘
-                 └───────────┘     └────────────┘          │
-                                                           │ AuthSync
-                                                           │ component
-                                                           ▼
-                                                    ┌─────────────┐
-                                                    │ GET /users/me│
-                                                    │ Bearer JWT   │
-                                                    └──────┬──────┘
-                                                           │
-                                                           ▼
-                                                    ┌─────────────┐
-                                                    │ getOrCreate  │
-                                                    │ User (upsert)│
-                                                    └─────────────┘
+┌──────────┐     ┌───────────────┐     ┌─────────────┐
+│  Browser │────▶│ /auth/signup  │────▶│ JWT session │
+│  (login) │     │ /auth/login   │     │ persisted   │
+└──────────┘     └──────┬────────┘     └──────┬──────┘
+         │                     │
+         ▼                     ▼
+       ┌─────────────┐        ┌─────────────┐
+       │ GET /users/me│       │ GET /profiles/me
+       └──────┬──────┘        └─────────────┘
+         │
+         ▼
+       ┌─────────────┐
+       │ getOrCreate │
+       │ User by id  │
+       └─────────────┘
 ```
 
-### Auth0 Configuration
+### JWT Configuration
 
 ```typescript
-// Frontend — main.tsx + config/runtimeConfig.ts
-Auth0Provider config:
-  domain:    runtimeConfig.auth0Domain
-  clientId:  runtimeConfig.auth0ClientId
-  audience:  runtimeConfig.auth0Audience
-  redirect:  window.location.origin
-
 // Backend — auth0.middleware.ts
-checkJwt = auth({
-  audience:       process.env.AUTH0_AUDIENCE,  // "http://localhost:4000"
-  issuerBaseURL:  `https://${process.env.AUTH0_DOMAIN}/`,  // Auth0 tenant
-  tokenSigningAlg: 'RS256'
-});
+checkJwt = jwt.verify(token, process.env.JWT_ACCESS_SECRET)
 ```
 
 ### Auth Middleware Pipeline
 
 Every protected endpoint goes through:
-1. **`checkJwt`** — Validates the Bearer token against Auth0 JWKS
-2. **`attachUserId`** — Extracts `req.auth.payload.sub` → `req.userId`
+1. **`checkJwt`** — Validates the Bearer token with shared secret
+2. **`attachUserId`** — Extracts `req.auth.payload.sub` when ObjectId-compatible
 
 ```typescript
 // middlewares/auth0.middleware.ts
 export default [checkJwt, attachUserId] as RequestHandler[];
 ```
 
-### AuthSync Component (Frontend)
+### Auth Bootstrap (Frontend)
 
-Automatically syncs Auth0 user with backend on login:
-
-```typescript
-// features/auth/AuthSync.tsx
-useEffect(() => {
-  if (!isLoading && isAuthenticated && user) {
-    dispatch(setAuth(user));
-    // GET /users/me — creates backend User record if not exists
-    apiRequest("/users/me", {}, getAccessTokenSilently);
-  }
-}, [isAuthenticated, user, isLoading]);
-```
+After session restoration, the app fetches profile state and enforces onboarding guards before entering protected routes.
 
 ---
 

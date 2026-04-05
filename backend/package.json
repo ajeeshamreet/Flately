@@ -20,13 +20,10 @@
   "description": "Flatly backend API",
   "dependencies": {
     "@prisma/client": "^6.19.2",
-    "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "express-oauth2-jwt-bearer": "^1.7.3",
-    "express-openid-connect": "^2.19.3",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
@@ -35,12 +32,12 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^2.1.8",
     "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.19.15",
+    "@vitest/coverage-v8": "^2.1.8",
     "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.2",

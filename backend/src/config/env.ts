@@ -6,8 +6,8 @@ dotenv.config();
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-  AUTH0_DOMAIN: z.string().min(1, 'AUTH0_DOMAIN is required'),
-  AUTH0_AUDIENCE: z.string().min(1, 'AUTH0_AUDIENCE is required'),
+  JWT_ACCESS_SECRET: z.string().min(16, 'JWT_ACCESS_SECRET is required'),
+  JWT_ACCESS_EXPIRES_IN: z.string().default('1h'),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
 });
 

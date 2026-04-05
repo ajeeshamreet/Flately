@@ -24,6 +24,7 @@ describe('findMatchesForUser', () => {
     userId: 'viewer-1',
     city: 'Toronto',
     gender: 'male',
+    onboardingCompleted: true,
   };
 
   const baseViewerPreference = {
@@ -51,13 +52,26 @@ describe('findMatchesForUser', () => {
     vi.clearAllMocks();
   });
 
-  it('throws PROFILE_OR_PREFERENCES_MISSING when profile or preferences are unavailable', async () => {
+  it('throws ONBOARDING_REQUIRED when profile or preferences are unavailable', async () => {
     prismaMock.profile.findUnique.mockResolvedValue(null);
     prismaMock.preference.findUnique.mockResolvedValue({ userId: 'viewer-1' });
 
-    await expect(findMatchesForUser('viewer-1')).rejects.toThrow(
-      'PROFILE_OR_PREFERENCES_MISSING',
-    );
+    await expect(findMatchesForUser('viewer-1')).rejects.toThrow('ONBOARDING_REQUIRED');
+
+    expect(prismaMock.profile.findMany).not.toHaveBeenCalled();
+    expect(prismaMock.preference.findMany).not.toHaveBeenCalled();
+  });
+
+  it('throws ONBOARDING_REQUIRED when profile exists but onboarding is incomplete', async () => {
+    prismaMock.profile.findUnique.mockResolvedValue({
+      userId: 'viewer-1',
+      city: 'Toronto',
+      gender: 'male',
+      onboardingCompleted: false,
+    });
+    prismaMock.preference.findUnique.mockResolvedValue(baseViewerPreference);
+
+    await expect(findMatchesForUser('viewer-1')).rejects.toThrow('ONBOARDING_REQUIRED');
 
     expect(prismaMock.profile.findMany).not.toHaveBeenCalled();
     expect(prismaMock.preference.findMany).not.toHaveBeenCalled();
@@ -462,6 +476,7 @@ describe('findMatchesForUser', () => {
       userId: 'viewer-1',
       city: null,
       gender: 'male',
+      onboardingCompleted: true,
     });
     prismaMock.preference.findUnique.mockResolvedValue(baseViewerPreference);
 

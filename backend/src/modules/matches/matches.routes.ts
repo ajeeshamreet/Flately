@@ -9,6 +9,12 @@ router.get(
 	'/me',
 	checkJwt,
 	...withAuthenticatedController(getMyMatches, {
+		domainErrors: {
+			ONBOARDING_REQUIRED: {
+				status: 403,
+				body: { message: 'Onboarding completion is required' },
+			},
+		},
 		fallbackError: { status: 500, body: { message: 'Internal server error' } },
 	}),
 );
@@ -17,6 +23,12 @@ router.post(
 	'/connect/:toUserId',
 	checkJwt,
 	...withAuthenticatedController(connectCompatibility, {
+		domainErrors: {
+			ONBOARDING_REQUIRED: {
+				status: 403,
+				body: { message: 'Onboarding completion is required' },
+			},
+		},
 		fallbackError: { status: 500, body: { message: 'Internal server error' } },
 	}),
 );
