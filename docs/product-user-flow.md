@@ -7,8 +7,8 @@ Status: Active source of truth
 
 This document defines the production user journey for Flately.
 
-- Authentication mode: manual email/password only
-- No OAuth providers, no Auth0 redirects
+- Authentication mode: email/password and Google OAuth
+- No Auth0 redirects or Auth0 dependencies in runtime flow
 - No non-functional CTAs on public or app routes
 - Dashboard must prioritize actionability over vanity metrics
 
@@ -59,6 +59,9 @@ Guard rules:
 - API endpoints:
   - `POST /auth/signup`
   - `POST /auth/login`
+  - `GET /auth/google/start`
+  - `GET /auth/google/callback`
+  - `GET /auth/google/exchange`
 - On success, persist session and load profile bootstrap
 
 4. Onboarding gate
@@ -124,6 +127,9 @@ Backend gate contract:
 Auth:
 - `POST /auth/signup`
 - `POST /auth/login`
+- `GET /auth/google/start`
+- `GET /auth/google/callback`
+- `GET /auth/google/exchange`
 
 Profile and preference:
 - `GET /profiles/me`
@@ -138,7 +144,6 @@ Matching/discovery:
 
 ## Anti-goals
 
-- No Google/Auth0 login buttons in UI
-- No `/auth/google/*` runtime flow in backend
-- No stale copy mentioning OAuth in auth screens
+- No Auth0 login buttons or Auth0 redirect/callback paths
+- No stale copy referencing Auth0 in auth screens
 - No dashboard cards that show counts without telling the user what to do next

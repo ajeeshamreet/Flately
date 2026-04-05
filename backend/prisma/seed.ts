@@ -26,7 +26,7 @@ async function main() {
       where: { email: "alice@example.com" },
       update: {},
       create: {
-        auth0id: "auth0|seed_alice",
+        googleId: "google-seed-alice",
         email: "alice@example.com",
         name: "Alice",
         picture: "https://i.pravatar.cc/150?img=1",
@@ -36,7 +36,7 @@ async function main() {
       where: { email: "bob@example.com" },
       update: {},
       create: {
-        auth0id: "auth0|seed_bob",
+        googleId: "google-seed-bob",
         email: "bob@example.com",
         name: "Bob",
         picture: "https://i.pravatar.cc/150?img=2",
@@ -46,7 +46,7 @@ async function main() {
       where: { email: "carol@example.com" },
       update: {},
       create: {
-        auth0id: "auth0|seed_carol",
+        googleId: "google-seed-carol",
         email: "carol@example.com",
         name: "Carol",
         picture: "https://i.pravatar.cc/150?img=3",
@@ -56,7 +56,7 @@ async function main() {
       where: { email: "dave@example.com" },
       update: {},
       create: {
-        auth0id: "auth0|seed_dave",
+        googleId: "google-seed-dave",
         email: "dave@example.com",
         name: "Dave",
         picture: "https://i.pravatar.cc/150?img=4",

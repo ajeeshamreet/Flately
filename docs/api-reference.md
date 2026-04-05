@@ -8,6 +8,11 @@
 
 ## Authentication
 
+Flately supports two sign-in modes:
+
+- Email/password via `/auth/signup` and `/auth/login`
+- Google OAuth via `/auth/google/start` -> `/auth/google/callback` -> `/auth/google/exchange`
+
 All protected endpoints use local JWT validation middleware:
 
 ```
@@ -21,7 +26,7 @@ Tokens are issued by:
 
 ### `POST /auth/signup`
 
-Create a manual auth account (email/password).
+Create an email/password account.
 
 **Request Body:**
 ```json
@@ -52,7 +57,7 @@ Create a manual auth account (email/password).
 
 ### `POST /auth/login`
 
-Authenticate an existing manual auth account.
+Authenticate an existing email/password account.
 
 **Request Body:**
 ```json
@@ -80,6 +85,63 @@ Authenticate an existing manual auth account.
 - `401` — `INVALID_CREDENTIALS`
 
 The middleware validates the token with `JWT_ACCESS_SECRET` and extracts `req.userId` from `payload.sub` when it is an ObjectId-compatible value.
+
+### `GET /auth/google/start`
+
+Start Google OAuth login/signup flow.
+
+Optional query params:
+
+- `source`: `login`, `signup`, or `questionnaire`
+- `redirectOrigin`: frontend origin (for example `http://localhost:5174`)
+
+Behavior:
+
+- If Google OAuth is configured, redirects to Google consent.
+- If not configured, redirects back to frontend `/login` with `error=GOOGLE_OAUTH_NOT_CONFIGURED`.
+
+### `GET /auth/google/callback`
+
+OAuth callback endpoint used by Google.
+
+Expected query params:
+
+- `code`
+- `state`
+
+Behavior:
+
+1. Validates OAuth state.
+2. Exchanges authorization code with Google.
+3. Resolves user by `googleId` or email and issues JWT session.
+4. Redirects to frontend `/auth/callback?code=<one-time-exchange-code>`.
+
+### `GET /auth/google/exchange`
+
+Exchange one-time code for a standard Flately auth session.
+
+Query params:
+
+- `code` (required)
+
+Success response (200):
+
+```json
+{
+  "accessToken": "<jwt>",
+  "user": {
+    "id": "665f1a2b3c4d5e6f7a8b9c0d",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "picture": "https://lh3.googleusercontent.com/..."
+  }
+}
+```
+
+Error responses:
+
+- `400` — `GOOGLE_EXCHANGE_CODE_REQUIRED`
+- `400` — `GOOGLE_EXCHANGE_CODE_INVALID`
 
 ---
 

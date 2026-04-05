@@ -137,6 +137,7 @@ Public routes:
 - /start
 - /signup
 - /login
+- /auth/callback
 
 Protected routes:
 - /app
@@ -190,9 +191,12 @@ Auth flow:
 Login/Signup pages:
 - src/pages/LoginPage.tsx
 - src/pages/SignupPage.tsx
+- src/pages/GoogleAuthCallbackPage.tsx
 
 Behavior:
 - source=questionnaire query param shows questionnaire continuation message.
+- Continue with Google button starts backend OAuth flow via /auth/google/start.
+- OAuth callback exchanges one-time code through /auth/google/exchange and persists standard auth session.
 - signup success routes to /app/onboarding.
 - login success routes to /app.
 
@@ -430,6 +434,6 @@ npm run dev -- --host 127.0.0.1 --port 5174
 ## 18. Maintenance Rules
 
 1. Keep docs/product-user-flow.md and this file in sync whenever guard/route behavior changes.
-2. Do not add OAuth/Auth0 references to frontend auth UI.
+2. Keep Auth0 out of runtime UI and use only backend-managed Google OAuth + email/password auth.
 3. Do not bypass onboarding gate for discovery/matches/chat routes.
 4. Keep transport contracts aligned with docs/api-reference.md before release.

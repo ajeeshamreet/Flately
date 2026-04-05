@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import checkJwt from '../../middlewares/auth0.middleware';
+import checkJwt from '../../middlewares/jwt.middleware';
 import { withAuthenticatedController } from '../../middlewares/controller-chain.middleware';
 import { connectCompatibility, getMyMatches } from './matches.controller';
 

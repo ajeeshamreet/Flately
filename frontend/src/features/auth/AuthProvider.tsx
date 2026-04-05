@@ -14,19 +14,27 @@ import {
   setAuthLoading,
   setSession,
 } from '@/features/auth/authSlice'
-import { signInWithPassword, signUpWithPassword } from '@/services/auth.transport'
+import {
+  exchangeGoogleAuthCode,
+  getGoogleAuthStartUrl,
+  signInWithPassword,
+  signUpWithPassword,
+} from '@/services/auth.transport'
 import { setAccessTokenGetter, setUnauthorizedHandler } from '@/services/api'
 import {
   clearPersistedSession,
   persistSession,
   readPersistedSession,
 } from '@/features/auth/auth.storage'
+import { formatAuthError } from '@/features/auth/auth.error'
 
 type AuthContextValue = {
   isAuthenticated: boolean
   isLoading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (name: string, email: string, password: string) => Promise<void>
+  signInWithGoogle: (source?: string) => void
+  completeGoogleSignIn: (exchangeCode: string) => Promise<void>
   signOut: () => void
 }
 
@@ -68,7 +76,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         dispatch(setSession(session))
         persistSession(session)
       } catch (error) {
-        dispatch(setAuthError((error as Error).message || 'Sign in failed'))
+        dispatch(setAuthError(formatAuthError(error, 'Sign in failed')))
         throw error
       }
     },
@@ -83,7 +91,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
         dispatch(setSession(session))
         persistSession(session)
       } catch (error) {
-        dispatch(setAuthError((error as Error).message || 'Sign up failed'))
+        dispatch(setAuthError(formatAuthError(error, 'Sign up failed')))
+        throw error
+      }
+    },
+    [dispatch],
+  )
+
+  const signInWithGoogle = useCallback((source?: string) => {
+    const googleUrl = getGoogleAuthStartUrl(source)
+    window.location.assign(googleUrl)
+  }, [])
+
+  const completeGoogleSignIn = useCallback(
+    async (exchangeCode: string) => {
+      dispatch(setAuthLoading())
+
+      try {
+        const session = await exchangeGoogleAuthCode(exchangeCode)
+        dispatch(setSession(session))
+        persistSession(session)
+      } catch (error) {
+        dispatch(setAuthError(formatAuthError(error, 'Google sign-in failed')))
         throw error
       }
     },
@@ -102,9 +131,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isLoading: status === 'loading',
       signIn,
       signUp,
+      signInWithGoogle,
+      completeGoogleSignIn,
       signOut,
     }),
-    [status, signIn, signUp, signOut],
+    [status, signIn, signUp, signInWithGoogle, completeGoogleSignIn, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

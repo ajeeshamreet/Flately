@@ -1,5 +1,8 @@
 # Manual Auth End-to-End Verification Report
 
+Note: this document is historical for the manual-auth-only phase.
+Current runtime source of truth for flows and flaws is `README.md` at repository root.
+
 Date: 2026-04-05
 Scope: Flately frontend + backend runtime verification after manual-auth cutover
 

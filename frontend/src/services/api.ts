@@ -38,7 +38,8 @@ apiClient.interceptors.response.use(
       const requestUrl = error.config?.url || ''
       const isAuthRequest =
         requestUrl.includes('/auth/login') ||
-        requestUrl.includes('/auth/signup')
+        requestUrl.includes('/auth/signup') ||
+        requestUrl.includes('/auth/google/exchange')
 
       if (status === 401 && !isAuthRequest && !unauthorizedTriggered) {
         unauthorizedTriggered = true

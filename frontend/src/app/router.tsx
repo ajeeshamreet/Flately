@@ -4,6 +4,7 @@ import { ProtectedRoute } from '@/app/ProtectedRoute'
 import { LandingPage } from '@/pages/LandingPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SignupPage } from '@/pages/SignupPage'
+import { GoogleAuthCallbackPage } from '@/pages/GoogleAuthCallbackPage'
 import { PreAuthQuestionnairePage } from '@/features/preauth/PreAuthQuestionnairePage'
 import { OnboardingPage } from '@/features/onboarding/OnboardingPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
@@ -28,6 +29,10 @@ export const router = createBrowserRouter([
   {
     path: '/start',
     element: <PreAuthQuestionnairePage />,
+  },
+  {
+    path: '/auth/callback',
+    element: <GoogleAuthCallbackPage />,
   },
   {
     path: '/app',

@@ -78,7 +78,7 @@ Auth and identity:
 - `backend/src/modules/auth/auth.routes.ts`
 - `backend/src/modules/auth/auth.controller.ts`
 - `backend/src/modules/auth/auth.service.ts`
-- JWT middleware (compat path): `backend/src/middlewares/auth0.middleware.ts`
+- JWT middleware: `backend/src/middlewares/jwt.middleware.ts`
 
 User/profile/preferences:
 - `backend/src/modules/users.routes.ts`
@@ -107,7 +107,10 @@ Required values:
 - `DATABASE_URL` (MongoDB)
 - `JWT_ACCESS_SECRET` (min length 16)
 - `JWT_ACCESS_EXPIRES_IN` (default `1h`)
-- `FRONTEND_URL` (default `http://localhost:5173`)
+- `FRONTEND_URL` (default `http://localhost:5174`)
+- `GOOGLE_OAUTH_CLIENT_ID` (required for Google login)
+- `GOOGLE_OAUTH_CLIENT_SECRET` (required for Google login)
+- `GOOGLE_OAUTH_CALLBACK_URL` (default `http://localhost:4000/auth/google/callback`)
 
 Validation source: `backend/src/config/env.ts`
 
@@ -233,4 +236,5 @@ Direct API probes with fresh user sessions:
 - Frontend implementation: `docs/frontend-guide.md`
 - API contract: `docs/api-reference.md`
 - Runtime verification evidence: `docs/manual-auth-end-to-end-verification.md`
+- E2E flow and flaw backlog: `README.md`
 - Rebuild status log: `docs/frontend-rebuild-status-2026-04-05.md`

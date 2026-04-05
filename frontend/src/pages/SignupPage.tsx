@@ -1,22 +1,33 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { formatAuthError, formatAuthErrorCode } from '@/features/auth/auth.error'
 
 export function SignupPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const { signUp, isLoading, isAuthenticated } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { signUp, signInWithGoogle, isLoading, isAuthenticated } = useAuth()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const source = searchParams.get('source')
+  const errorCode = searchParams.get('error')
 
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/app', { replace: true })
     }
   }, [isAuthenticated, navigate])
+
+  useEffect(() => {
+    if (errorCode) {
+      setError(formatAuthErrorCode(errorCode, 'Sign up failed.'))
+      const nextSearchParams = new URLSearchParams(searchParams)
+      nextSearchParams.delete('error')
+      setSearchParams(nextSearchParams, { replace: true })
+    }
+  }, [errorCode, searchParams, setSearchParams])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -25,7 +36,7 @@ export function SignupPage() {
       await signUp(name, email, password)
       navigate('/app/onboarding', { replace: true })
     } catch (submitError) {
-      setError((submitError as Error).message || 'Unable to sign up')
+      setError(formatAuthError(submitError, 'Unable to sign up'))
     }
   }
 
@@ -104,6 +115,20 @@ export function SignupPage() {
               {error}
             </div>
           ) : null}
+
+          <button
+            type="button"
+            onClick={() => signInWithGoogle(source || undefined)}
+            className="mt-6 w-full rounded-xl border border-neutral-border bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Continue with Google
+          </button>
+
+          <div className="mt-4 flex items-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" />
+            <span>or</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
 
           <button
             type="submit"
