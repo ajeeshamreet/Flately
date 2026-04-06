@@ -1,4 +1,4 @@
-import { disconnectSeedClient, runSeed } from '../seed/runSeed';
+import { disconnectSeedClient, runSeed } from './runSeed';
 
 runSeed()
   .catch((error) => {
