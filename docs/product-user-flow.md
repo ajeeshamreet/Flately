@@ -1,6 +1,6 @@
 # Flately Canonical User Flow
 
-Last updated: 2026-04-05
+Last updated: 2026-04-06
 Status: Active source of truth
 
 ## Scope
@@ -26,6 +26,7 @@ Public routes:
 - `/start`
 - `/signup`
 - `/login`
+- `/auth/callback`
 
 Protected routes:
 - `/app`
@@ -62,11 +63,18 @@ Guard rules:
   - `GET /auth/google/start`
   - `GET /auth/google/callback`
   - `GET /auth/google/exchange`
+- Unified continuation policy (Strategy-based):
+  - if `source=questionnaire`, continue to `/app/onboarding` across signup, login, and Google callback
+  - signup without questionnaire source continues to `/app/onboarding`
+  - login/Google callback without questionnaire source continue to `/app`
 - On success, persist session and load profile bootstrap
 
 4. Onboarding gate
 - Route: `/app/onboarding`
-- Prefill from questionnaire draft when profile/preferences are missing
+- Prefill from questionnaire draft with safe segment merge:
+  - profile-related draft fields fill only when profile values are missing
+  - preference-related draft fields fill only when preference values are missing
+  - existing saved values take precedence over draft
 - Submit to:
   - `POST /profiles/me`
   - `POST /preferences/me`

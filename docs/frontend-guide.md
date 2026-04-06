@@ -1,6 +1,6 @@
 # Flately Frontend Guide
 
-Last updated: 2026-04-05
+Last updated: 2026-04-06
 Status: Current implementation reference
 
 ## 1. Scope
@@ -24,7 +24,7 @@ Full project handoff:
 - Vite 7
 - Redux Toolkit
 - React Router v6
-- Axios
+- Native Fetch (Adapter + Strategy transport layer)
 - Socket.IO client
 - Tailwind CSS v4
 
@@ -179,7 +179,7 @@ Auth flow:
 1. AuthProvider reads persisted session.
 2. If session exists:
    - dispatch setSession
-   - register token getter for Axios
+  - register token getter for shared API client
 3. If no session:
    - dispatch finishAuthBootstrap (unauthenticated)
 4. 401 interceptor (non-auth endpoints):
@@ -197,8 +197,19 @@ Behavior:
 - source=questionnaire query param shows questionnaire continuation message.
 - Continue with Google button starts backend OAuth flow via /auth/google/start.
 - OAuth callback exchanges one-time code through /auth/google/exchange and persists standard auth session.
-- signup success routes to /app/onboarding.
-- login success routes to /app.
+- all auth entry points use a unified continuation policy resolver in `src/features/auth/authContinuationResolver.ts`.
+
+Auth continuation routing contract:
+- source=questionnaire -> `/app/onboarding` for signup, login, and Google callback.
+- signup without questionnaire source -> `/app/onboarding`.
+- login and Google callback without questionnaire source -> `/app`.
+
+Design pattern applied:
+- Strategy: continuation rules are encapsulated as strategies and evaluated in priority order.
+- Current strategies:
+  - `QuestionnaireSourceStrategy`
+  - `SignupDefaultStrategy`
+  - `DefaultAppStrategy`
 
 ## 8. Pre-Auth Questionnaire Handoff
 
@@ -216,7 +227,10 @@ Draft persistence:
 
 Handoff:
 - questionnaire -> /signup?source=questionnaire or /login?source=questionnaire
-- onboarding reads this draft only when profile/preferences are missing
+- onboarding now applies questionnaire draft safely by segment:
+  - profile-derived fields are filled from draft only when profile data is missing
+  - preference-derived fields are filled from draft only when preference data is missing
+  - existing saved profile/preference values are not overwritten by questionnaire draft
 
 ## 9. Onboarding System
 
@@ -320,10 +334,14 @@ Core client:
 - src/services/api.ts
 
 Features:
-- Axios instance with baseURL + timeout
-- Authorization header injection via token getter
-- centralized 401 handler for session expiry
-- shared toApiErrorMessage parser (reads error or message fields)
+- Replaced Axios transport with Adapter + Strategy in `api.ts`
+- Kept existing service call contract unchanged, so feature modules still call `apiRequest(...)`
+- Preserved auth token injection and one-shot 401 unauthorized handling behavior
+- Added a structured manual error model (`ApiError`) so existing UI error mapping still works
+
+Pattern fit:
+- Strategy: `FetchRequestStrategy` handles low-level HTTP execution
+- Adapter: `HttpClientAdapter` adapts app-level request config to the strategy and centralizes cross-cutting auth behavior
 
 Transport endpoint map:
 - auth.transport.ts
@@ -386,7 +404,9 @@ Theme direction:
 File: src/services/cloudinary.ts
 
 Behavior:
-- if cloud name or upload preset is missing: throws Cloudinary is not configured
+- requests signed upload config from backend `POST /uploads/signature` first
+- if backend returns `CLOUDINARY_NOT_CONFIGURED` or route is unavailable, falls back to unsigned preset upload
+- if neither signed config nor unsigned preset config is available: throws Cloudinary is not configured
 - onboarding gracefully supports manual image URL entry as fallback
 
 ## 16. Testing and Verification
@@ -394,19 +414,23 @@ Behavior:
 Frontend test files:
 - src/features/chat/chat.messages.test.ts
 - src/features/onboarding/onboarding.mapper.test.ts
+- src/features/auth/authContinuationResolver.test.ts
 - src/services/transports.test.ts
+- e2e/onboarding-cloudinary.spec.ts
 
 Commands:
 ```bash
 cd frontend
 npm run test
+npm run test:e2e
 npm run typecheck
 npm run lint
 npm run build
 ```
 
-Latest verified status (2026-04-05):
+Latest verified status (2026-04-06):
 - tests: pass
+- e2e: pass
 - typecheck: pass
 - lint: pass
 - build: pass

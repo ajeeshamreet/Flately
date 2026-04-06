@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { resolveAuthContinuationPath } from '@/features/auth/authContinuationResolver'
 import { formatAuthError, formatAuthErrorCode } from '@/features/auth/auth.error'
 
 export function LoginPage() {
@@ -43,7 +44,13 @@ export function LoginPage() {
     setError(null)
     try {
       await signIn(email, password)
-      navigate('/app', { replace: true })
+      navigate(
+        resolveAuthContinuationPath({
+          entryPoint: 'login',
+          source,
+        }),
+        { replace: true },
+      )
     } catch (submitError) {
       setError(formatAuthError(submitError, 'Unable to sign in'))
     }

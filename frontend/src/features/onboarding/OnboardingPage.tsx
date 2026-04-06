@@ -2,8 +2,11 @@ import { type ChangeEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/app/hooks'
 import { setProfile } from '@/features/profile/profileSlice'
-import { runtimeConfig } from '@/config/runtimeConfig'
-import { uploadImageToCloudinary } from '@/services/cloudinary'
+import {
+  getCloudinaryUploadAvailability,
+  uploadImageToCloudinary,
+  type CloudinaryUploadAvailability,
+} from '@/services/cloudinary'
 import { toApiErrorMessage } from '@/services/api'
 import { getMyPreferences, saveMyPreferences } from '@/services/preferences.transport'
 import { getMyProfile, saveMyProfile } from '@/services/profile.transport'
@@ -17,8 +20,68 @@ import {
 import {
   clearPreAuthQuestionnaireDraft,
   readPreAuthQuestionnaireDraft,
+  type PreAuthQuestionnaireDraft,
 } from '@/features/preauth/preauth.storage'
-import type { OnboardingFormData } from '@/types'
+import type { OnboardingFormData, Preference, Profile } from '@/types'
+
+type CloudinaryStatusState = CloudinaryUploadAvailability | 'checking'
+
+function getCloudinaryStatusLabel(status: CloudinaryStatusState): string {
+  if (status === 'checking') {
+    return 'checking...'
+  }
+
+  if (status === 'signed') {
+    return 'signed backend available'
+  }
+
+  if (status === 'unsigned') {
+    return 'unsigned preset fallback'
+  }
+
+  return 'unavailable'
+}
+
+function hasProfileCity(profile: Profile | null): boolean {
+  return Boolean(profile?.city && profile.city.trim().length > 0)
+}
+
+function hasPreferenceCity(preference: Preference | null): boolean {
+  return Boolean(preference?.city && preference.city.trim().length > 0)
+}
+
+function applyDraftToFormData(
+  mapped: OnboardingFormData,
+  draft: PreAuthQuestionnaireDraft | null,
+  profile: Profile | null,
+  preference: Preference | null,
+): OnboardingFormData {
+  if (!draft) {
+    return mapped
+  }
+
+  const next = { ...mapped }
+
+  if (!profile) {
+    next.hasRoom = draft.hasRoom
+    next.sleepSchedule = draft.sleepSchedule
+  }
+
+  if (!hasProfileCity(profile) && !hasPreferenceCity(preference)) {
+    next.city = draft.city
+  }
+
+  if (!preference) {
+    next.minBudget = draft.minBudget
+    next.maxBudget = draft.maxBudget
+    next.cleanliness = draft.cleanliness
+    next.socialLevel = draft.socialLevel
+    next.genderPreference = draft.genderPreference
+    next.priorityOrder = [...draft.priorityOrder]
+  }
+
+  return next
+}
 
 export function OnboardingPage() {
   const navigate = useNavigate()
@@ -32,6 +95,7 @@ export function OnboardingPage() {
   const [submitting, setSubmitting] = useState(false)
   const [manualPhotoUrl, setManualPhotoUrl] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [cloudinaryStatus, setCloudinaryStatus] = useState<CloudinaryStatusState>('checking')
 
   useEffect(() => {
     let cancelled = false
@@ -54,23 +118,7 @@ export function OnboardingPage() {
 
         const mapped = mapInitialFormData(profile, preference, authUser?.name || '')
         const draft = readPreAuthQuestionnaireDraft()
-
-        if (!profile && !preference && draft) {
-          setFormData({
-            ...mapped,
-            hasRoom: draft.hasRoom,
-            city: draft.city,
-            minBudget: draft.minBudget,
-            maxBudget: draft.maxBudget,
-            sleepSchedule: draft.sleepSchedule,
-            cleanliness: draft.cleanliness,
-            socialLevel: draft.socialLevel,
-            genderPreference: draft.genderPreference,
-            priorityOrder: draft.priorityOrder,
-          })
-        } else {
-          setFormData(mapped)
-        }
+        setFormData(applyDraftToFormData(mapped, draft, profile, preference))
       } catch (loadError) {
         if (!cancelled) {
           setError(toApiErrorMessage(loadError, 'Failed to load onboarding data'))
@@ -88,6 +136,29 @@ export function OnboardingPage() {
       cancelled = true
     }
   }, [authUser?.name, navigate])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCloudinaryStatus(): Promise<void> {
+      try {
+        const status = await getCloudinaryUploadAvailability()
+        if (!cancelled) {
+          setCloudinaryStatus(status)
+        }
+      } catch {
+        if (!cancelled) {
+          setCloudinaryStatus('unavailable')
+        }
+      }
+    }
+
+    loadCloudinaryStatus()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function updateField<K extends keyof OnboardingFormData>(
     key: K,
@@ -358,14 +429,14 @@ export function OnboardingPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-slate-700">Photos</p>
-                <p className="text-xs text-slate-500">
-                  Cloudinary: {runtimeConfig.cloudinaryCloudName ? 'configured' : 'not configured'}
+                <p className="text-xs text-slate-500" data-testid="cloudinary-status-badge">
+                  Cloudinary: {getCloudinaryStatusLabel(cloudinaryStatus)}
                 </p>
               </div>
 
-              {!runtimeConfig.cloudinaryCloudName ? (
+              {cloudinaryStatus === 'unavailable' ? (
                 <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  Cloudinary is not configured in this environment. You can still continue by adding
+                  Cloudinary uploads are unavailable right now. You can still continue by adding
                   photo URLs manually below.
                 </p>
               ) : null}

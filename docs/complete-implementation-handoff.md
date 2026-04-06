@@ -1,6 +1,6 @@
 # Flately Complete Implementation Handoff
 
-Last updated: 2026-04-05
+Last updated: 2026-04-06
 Audience: New engineers onboarding to this codebase
 
 ## 1. Purpose
@@ -10,8 +10,10 @@ If you hand this repository and this document to a developer, they should be abl
 
 ## 2. Product Contract (Current)
 
-1. Authentication is manual email/password only.
-- Supported endpoints: `POST /auth/signup`, `POST /auth/login`.
+1. Authentication supports email/password and Google OAuth.
+- Supported endpoints:
+  - `POST /auth/signup`, `POST /auth/login`
+  - `GET /auth/google/start`, `GET /auth/google/callback`, `GET /auth/google/exchange`
 - Session payload contains `accessToken` + `user`.
 
 2. Protected routes require an authenticated session.
@@ -49,6 +51,8 @@ Core modules:
   - `frontend/src/features/auth/AuthBootstrap.tsx`
   - `frontend/src/features/auth/authSlice.ts`
   - `frontend/src/features/auth/auth.storage.ts`
+- Transport core:
+  - `frontend/src/services/api.ts` (Fetch Adapter + Strategy, token injection, one-shot 401 handler)
 - Onboarding:
   - `frontend/src/features/onboarding/OnboardingPage.tsx`
   - `frontend/src/features/onboarding/onboarding.mapper.ts`
@@ -158,17 +162,21 @@ npm run dev -- --host 127.0.0.1 --port 5174
 - Data is schema-sanitized before onboarding prefill.
 
 3. Signup/Login (`/signup`, `/login`)
+- Email/password or Google OAuth both resolve to the same session shape.
 - Successful auth stores session (`accessToken`) in local storage.
 
-4. Auth bootstrap
+4. OAuth callback (`/auth/callback`)
+- Frontend exchanges one-time code (`/auth/google/exchange`) and persists session.
+
+5. Auth bootstrap
 - Frontend fetches profile via `GET /users/me` then profile data via profile transport.
 
-5. Onboarding (`/app/onboarding`)
+6. Onboarding (`/app/onboarding`)
 - Saves profile via `POST /profiles/me`.
 - Saves preferences via `POST /preferences/me`.
 - Sets onboarding complete.
 
-6. Post-onboarding features
+7. Post-onboarding features
 - Dashboard (`/app`)
 - Discovery (`/app/discover`)
 - Matches (`/app/matches`)

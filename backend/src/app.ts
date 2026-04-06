@@ -12,6 +12,7 @@ import matchRoutes from './modules/matches/matches.routes';
 import discoveryRoutes from './modules/discovery/discovery.routes';
 import chatRoutes from './modules/chat/chat.routes';
 import authRoutes from './modules/auth/auth.routes';
+import uploadsRoutes from './modules/uploads/uploads.routes';
 
 function buildAllowedOrigins(): string[] {
   const defaults = [
@@ -57,6 +58,7 @@ const limiter = rateLimit({
 app.use(limiter);
 app.use(express.json());
 app.use('/auth', authRoutes);
+app.use('/uploads', uploadsRoutes);
 app.use('/matching', matchingRoutes);
 app.use('/profiles', profileRoutes);
 app.use('/discovery', discoveryRoutes);

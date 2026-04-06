@@ -1,11 +1,10 @@
 # Flately — System Architecture
 
 > Source-of-truth note: authentication and route-state behavior are defined in `docs/product-user-flow.md`.
-> This architecture file may include legacy snapshots retained for historical context.
 
-> **Version**: 2.4 COMMAND  
-> **Last Updated**: 2026-03-25  
-> **Stack**: TypeScript Full-Stack · MongoDB · JWT Auth · Socket.IO
+> **Version**: 2.5 CURRENT  
+> **Last Updated**: 2026-04-06  
+> **Stack**: TypeScript Full-Stack · MongoDB · JWT Auth · Google OAuth · Socket.IO
 
 ---
 
@@ -15,11 +14,11 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                         CLIENT (Browser)                        │
 │  React 19 + Vite 7 + Redux Toolkit + TailwindCSS v4            │
-│  Manual Auth UI + Socket.IO Client + Framer Motion             │
-│  Port: 5173 (dev)                                               │
+│  Email/password + Google OAuth UI + Socket.IO Client            │
+│  Port: 5174 (local default target)                              │
 └────────────────────┬──────────────────┬─────────────────────────┘
-                     │ REST (Axios)     │ WebSocket (Socket.IO)
-                     │ Bearer JWT       │ Bidirectional
+                     │ REST (Fetch Adapter + Strategy)
+                     │ Bearer JWT       │ WebSocket (Socket.IO)
                      ▼                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        BACKEND SERVER                           │
@@ -28,8 +27,8 @@
 │  Port: 4000                                                     │
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │  REST API    │  │  Socket.IO   │  │  JWT Middleware       │   │
-│  │  (7 routers) │  │  (chat ns)   │  │  (RS256 verification)│   │
+│  │  REST API    │  │  Socket.IO   │  │  JWT Middleware      │   │
+│  │  (9 routers) │  │  (chat ns)   │  │  (shared secret)     │   │
 │  └──────┬───────┘  └──────┬───────┘  └──────────────────────┘   │
 │         │                 │                                      │
 │         ▼                 ▼                                      │
@@ -80,7 +79,7 @@
 | Redux Toolkit | ^2.11.2 | State management |
 | React Router DOM | ^6.28.0 | Client-side routing |
 | Custom Auth Provider | internal | Session bootstrap and persistence |
-| Axios | ^1.13.2 | HTTP client |
+| Native Fetch Transport | internal | HTTP client via Adapter + Strategy (`HttpClientAdapter`, `FetchRequestStrategy`) |
 | Framer Motion | ^12.29.2 | Animations |
 | Socket.IO Client | ^4.8.3 | Real-time WebSocket |
 | React Hook Form | ^7.71.1 | Form management |
@@ -93,31 +92,29 @@
 
 ---
 
-## 3. Authentication Flow (Manual JWT)
+## 3. Authentication Flow (JWT + Google OAuth)
 
 ```
 ┌──────────┐     ┌───────────────┐     ┌─────────────┐
 │  Browser │────▶│ /auth/signup  │────▶│ JWT session │
-│  (login) │     │ /auth/login   │     │ persisted   │
-└──────────┘     └──────┬────────┘     └──────┬──────┘
-         │                     │
-         ▼                     ▼
-       ┌─────────────┐        ┌─────────────┐
-       │ GET /users/me│       │ GET /profiles/me
-       └──────┬──────┘        └─────────────┘
-         │
-         ▼
-       ┌─────────────┐
-       │ getOrCreate │
-       │ User by id  │
-       └─────────────┘
+│          │────▶│ /auth/login   │────▶│ persisted   │
+└──────────┘     └───────────────┘     └──────┬──────┘
+      │                                        │
+      │     ┌──────────────────────────────────┘
+      ▼     ▼
+┌──────────────────────────────────────────────────────────────┐
+│ /auth/google/start -> /auth/google/callback -> /auth/google/exchange │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                        Standard JWT session
 ```
 
 ### JWT Configuration
 
 ```typescript
-// Backend — auth0.middleware.ts
-checkJwt = jwt.verify(token, process.env.JWT_ACCESS_SECRET)
+// Backend — middlewares/jwt.middleware.ts
+const payload = jwt.verify(token, env.JWT_ACCESS_SECRET)
 ```
 
 ### Auth Middleware Pipeline
@@ -127,9 +124,15 @@ Every protected endpoint goes through:
 2. **`attachUserId`** — Extracts `req.auth.payload.sub` when ObjectId-compatible
 
 ```typescript
-// middlewares/auth0.middleware.ts
+// middlewares/jwt.middleware.ts
 export default [checkJwt, attachUserId] as RequestHandler[];
 ```
+
+### Google OAuth Endpoints
+
+- `GET /auth/google/start`
+- `GET /auth/google/callback`
+- `GET /auth/google/exchange`
 
 ### Auth Bootstrap (Frontend)
 
@@ -147,9 +150,17 @@ backend/src/
 │   ├── env.ts                      # Zod-validated environment variables
 │   └── prisma.ts                   # PrismaClient singleton
 ├── middlewares/
-│   ├── auth0.middleware.ts         # JWT validation + userId extraction
+│   ├── jwt.middleware.ts           # JWT validation + userId extraction
 │   └── controller-chain.middleware.ts  # Auth precondition + domain error mapping chain
 ├── modules/
+│   ├── auth/
+│   │   ├── auth.controller.ts      # signup/login/google OAuth handlers
+│   │   ├── auth.routes.ts          # /auth routes
+│   │   └── auth.service.ts         # credential + OAuth + session issuance logic
+│   ├── uploads/
+│   │   ├── uploads.controller.ts   # POST /uploads/signature
+│   │   ├── uploads.routes.ts
+│   │   └── uploads.service.ts      # Cloudinary upload signature generation
 │   ├── users.controllers.ts        # GET /users/me
 │   ├── users.routes.ts             # Router for /users
 │   ├── users.service.ts            # getOrCreateUser()
@@ -182,7 +193,7 @@ backend/src/
 │       └── upsert-by-user-id.service.ts  # Shared upsert lifecycle abstraction
 └── types/
     ├── api.ts                      # ApiResponse<T>, PaginatedResponse<T>
-    ├── auth.ts                     # Auth0User, AuthRequest
+    ├── auth.ts                     # AuthRequest, AuthTokenPayload
     ├── database.ts                 # User, Profile, Match interfaces
     └── socket.ts                   # ServerToClientEvents, ClientToServerEvents
 ```
@@ -208,10 +219,7 @@ Cross-cutting backend notes:
 ```typescript
 // app.ts — Middleware stack (applied in order)
 app.use(helmet());                    // Security headers
-app.use(cors({
-  origin: env.FRONTEND_URL,           // "http://localhost:5173"
-  credentials: true
-}));
+app.use(cors({ origin: originValidator, credentials: true }));
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,           // 15 minutes
   max: 100,                            // 100 requests per window
@@ -221,6 +229,8 @@ app.use(rateLimit({
 app.use(express.json());              // JSON body parser
 
 // Route registration
+app.use('/auth',       authRoutes);
+app.use('/uploads',    uploadsRoutes);
 app.use('/matching',    matchingRoutes);
 app.use('/profiles',    profileRoutes);
 app.use('/discovery',   discoveryRoutes);
@@ -252,23 +262,30 @@ server.listen(PORT || 4000);
 ```env
 PORT=4000
 DATABASE_URL="mongodb+srv://<user>:<pass>@cluster0.vthoeo7.mongodb.net/flately"
-AUTH0_DOMAIN=dev-aobtnrv6g50bmj1a.us.auth0.com
-AUTH0_AUDIENCE=http://localhost:4000
-FRONTEND_URL="http://localhost:5173"
+JWT_ACCESS_SECRET="replace-with-strong-secret"
+JWT_ACCESS_EXPIRES_IN="1h"
+FRONTEND_URL="http://localhost:5174"
+GOOGLE_OAUTH_CLIENT_ID="your-google-client-id"
+GOOGLE_OAUTH_CLIENT_SECRET="your-google-client-secret"
+GOOGLE_OAUTH_CALLBACK_URL="http://localhost:4000/auth/google/callback"
+CLOUDINARY_CLOUD_NAME="your-cloudinary-cloud-name"
+CLOUDINARY_API_KEY="your-cloudinary-api-key"
+CLOUDINARY_API_SECRET="your-cloudinary-api-secret"
+CLOUDINARY_UPLOAD_FOLDER="flately/profiles"
 ```
 
-### Frontend runtime config (`frontend/frontend/.env.example`)
+### Frontend runtime config (`frontend/.env`)
 
 ```env
 VITE_API_BASE_URL=http://localhost:4000
 VITE_SOCKET_URL=http://localhost:4000
-VITE_AUTH0_DOMAIN=dev-aobtnrv6g50bmj1a.us.auth0.com
-VITE_AUTH0_CLIENT_ID=your-auth0-client-id
-VITE_AUTH0_AUDIENCE=http://localhost:4000
+VITE_CLOUDINARY_CLOUD_NAME=
+VITE_CLOUDINARY_UPLOAD_PRESET=
 ```
 
 Runtime wiring notes:
-- Frontend transport and Auth0 values are read through `runtimeConfig`.
+- Frontend transport runtime values are read through `runtimeConfig`.
+- Cloudinary upload uses backend signed config endpoint first (`/uploads/signature`) and falls back to unsigned preset when needed.
 - No frontend source edits are required per environment when these variables are set.
 
 ### Zod Validation
@@ -278,9 +295,16 @@ Runtime wiring notes:
 const envSchema = z.object({
   PORT:           z.coerce.number().default(4000),
   DATABASE_URL:   z.string().min(1, 'DATABASE_URL is required'),
-  AUTH0_DOMAIN:   z.string().min(1, 'AUTH0_DOMAIN is required'),
-  AUTH0_AUDIENCE: z.string().min(1, 'AUTH0_AUDIENCE is required'),
-  FRONTEND_URL:   z.string().default('http://localhost:5173'),
+  JWT_ACCESS_SECRET: z.string().min(16, 'JWT_ACCESS_SECRET is required'),
+  JWT_ACCESS_EXPIRES_IN: z.string().default('1h'),
+  FRONTEND_URL: z.string().default('http://localhost:5174'),
+  CLOUDINARY_CLOUD_NAME: z.string().default(''),
+  CLOUDINARY_API_KEY: z.string().default(''),
+  CLOUDINARY_API_SECRET: z.string().default(''),
+  CLOUDINARY_UPLOAD_FOLDER: z.string().default('flately/profiles'),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().default(''),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().default(''),
+  GOOGLE_OAUTH_CALLBACK_URL: z.string().default('http://localhost:4000/auth/google/callback'),
 });
 // Exits process on validation failure
 ```
@@ -290,87 +314,59 @@ const envSchema = z.object({
 ## 7. Frontend Architecture
 
 ```
-frontend/frontend/src/
-├── main.tsx                           # App entry point (Auth0Provider + Redux + Router)
-├── index.css                          # Design tokens + TailwindCSS v4 theme
+frontend/src/
+├── main.tsx                           # App entry (Redux + AuthProvider + AuthBootstrap + Router)
 ├── app/
-│   ├── router.tsx                     # React Router configuration (all routes)
-│   ├── store.ts                       # Redux store (6 slices)
-│   ├── AppLayout.tsx                  # Sidebar + Outlet layout (Framer Motion)
-│   └── ProtectedRoute.tsx             # Auth guard (redirects to / if unauthenticated)
+│   ├── router.tsx                     # Route map including /auth/callback
+│   ├── store.ts                       # Redux store
+│   ├── AppLayout.tsx                  # Sidebar + protected shell
+│   └── ProtectedRoute.tsx             # Auth/profile onboarding guard
 ├── pages/
-│   ├── Landing.tsx                    # Public landing page (Hero, How It Works, CTA)
-│   ├── Login.tsx                      # Placeholder
-│   └── NotFound.tsx                   # 404 page
+│   ├── LandingPage.tsx
+│   ├── LoginPage.tsx
+│   ├── SignupPage.tsx
+│   └── GoogleAuthCallbackPage.tsx
 ├── features/
-│   ├── auth/
-│   │   ├── authSlice.ts               # Redux: {isAuthenticated, user, loading}
-│   │   └── AuthSync.tsx               # Syncs Auth0 state → Redux + backend
+│   ├── auth/                          # Session persistence, bootstrap, OAuth handoff
+│   ├── preauth/                       # Questionnaire capture before auth
 │   ├── onboarding/
-│   │   ├── OnboardingPage.tsx         # 5-step onboarding form
-│   │   ├── ProfileForm.tsx            # Legacy simple profile form
-│   │   └── onboardingSlice.ts         # Redux: {profile, loading, completed}
-│   ├── discovery/
-│   │   ├── DiscoveryPage.tsx          # Split-panel: queue + profile detail
-│   │   └── discoverySlice.ts          # Redux: {feed[], loading}
-│   ├── matches/
-│   │   ├── MatchesPage.tsx            # Data table with filters, sparklines
-│   │   └── matchesSlice.ts            # Redux: {list[], loading}
-│   ├── chat/
-│   │   ├── ChatPage.tsx               # 3-panel: threads + messages + intel
-│   │   ├── chatSlice.ts               # Redux: {conversations{}, activeId, loading}
-│   │   └── socket.ts                  # Socket.IO client instance
-│   ├── preferences/
-│   │   ├── PreferencesPage.tsx         # Preferences editor
-│   │   ├── PreferenceForm.tsx          # Preference form component
-│   │   └── preferencesSlice.ts         # Redux slice
 │   ├── dashboard/
-│   │   └── DashboardPage.tsx          # 3-column: signals + stats + criteria
-│   └── rooms/                         # (placeholder module — not yet implemented)
-├── components/
-│   ├── common/
-│   │   └── Stepper.tsx                # Step indicator component
-│   ├── layout/
-│   │   ├── AppSidebar.tsx             # Navigation sidebar (fixed, 256px)
-│   │   └── Navbar.tsx                 # Top navbar for landing page
-│   └── ui/
-│       ├── Button.tsx                 # Reusable button
-│       ├── Card.tsx                   # Card component
-│       ├── Input.tsx                  # Input component
-│       ├── NoiseLayer.tsx             # Visual noise texture overlay
-│       ├── Skeleton.tsx               # Loading skeleton
-│       └── index.ts                   # Barrel export
+│   ├── discovery/
+│   ├── matches/
+│   ├── chat/
+│   └── profile/
 ├── services/
-│   ├── api.ts                         # Axios client + apiRequest(path, options, getToken)
-│   └── auth0.ts                       # Placeholder
-├── lib/
-│   └── utils.ts                       # cn() — clsx + tailwind-merge
-└── types/
-    └── index.ts                       # User, Profile, Preference, Match interfaces
+│   ├── api.ts                         # Fetch Adapter + Strategy + ApiError
+│   ├── auth.transport.ts
+│   ├── profile.transport.ts
+│   ├── preferences.transport.ts
+│   ├── discovery.transport.ts
+│   ├── matches.transport.ts
+│   └── chat.transport.ts
+└── config/
+    └── runtimeConfig.ts               # API/Socket/Cloudinary runtime values
 ```
 
 ### Component Hierarchy
 
 ```
 <StrictMode>
-  <Auth0Provider>       ← Auth0 context
-    <Provider store>    ← Redux store
-      <AuthSync>        ← Auto-syncs Auth0 → Redux + backend
+  <Provider store>
+    <AuthProvider>
+      <AuthBootstrap>
         <RouterProvider>
-          ├── <Landing />                             (path: /)
-          ├── <AppLayout>                             (wrapper with sidebar)
-          │     <AppSidebar />                        (fixed sidebar, 256px)
-          │     <motion.main>                         (animated content area)
-          │       <ProtectedRoute>                    (auth guard)
-          │         ├── <DashboardPage />              (path: /app)
-          │         ├── <OnboardingPage />             (path: /app/onboarding)
-          │         ├── <DiscoveryPage />              (path: /app/discover)
-          │         ├── <MatchesPage />                (path: /app/matches)
-          │         └── <ChatPage />                   (path: /app/chat/:matchId?)
-          │       </ProtectedRoute>
-          │     </motion.main>
-          │   </AppLayout>
-          └── <NotFound />                            (path: *)
+          ├── <LandingPage />                         (path: /)
+          ├── <LoginPage />                           (path: /login)
+          ├── <SignupPage />                          (path: /signup)
+          ├── <GoogleAuthCallbackPage />              (path: /auth/callback)
+          └── <AppLayout>                             (path: /app/*)
+               └── <ProtectedRoute>
+                    ├── <DashboardPage />             (path: /app)
+                    ├── <OnboardingPage />            (path: /app/onboarding)
+                    ├── <DiscoveryPage />             (path: /app/discover)
+                    ├── <MatchesPage />               (path: /app/matches)
+                    ├── <ChatPage />                  (path: /app/chat/:matchId?)
+                    └── <ProfileEditorPage />         (path: /app/profile)
 ```
 
 ---
@@ -408,30 +404,45 @@ export const store = configureStore({
 
 ```typescript
 // services/api.ts
-const api = axios.create({
-  baseURL: runtimeConfig.apiBaseUrl,
-  timeout: 10000,
-  headers: { 'Content-Type': 'application/json' },
-});
+const apiClient = new HttpClientAdapter(
+  new FetchRequestStrategy(),
+  runtimeConfig.apiBaseUrl,
+)
 
-export async function apiRequest(path, options = {}, getToken) {
-  const token = await getToken();
-  const response = await api({
-    url: path,
-    ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  return response.data;
+export async function apiRequest<T>(config: ApiRequestConfig): Promise<T> {
+  return apiClient.request<T>(config)
 }
 ```
 
-**Usage pattern across all pages:**
+Canonical transport behavior:
+
+- Replaced Axios transport with Adapter + Strategy in `api.ts`
+- Kept existing service call contract unchanged, so feature modules still call `apiRequest(...)`
+- Preserved auth token injection and one-shot 401 unauthorized handling behavior
+- Added a structured manual error model (`ApiError`) so existing UI error mapping still works
+
+Pattern fit for transport:
+
+- Strategy: `FetchRequestStrategy` handles low-level HTTP execution
+- Adapter: `HttpClientAdapter` adapts app-level request config to the strategy and centralizes cross-cutting auth behavior
+
+Auth continuation behavior uses a separate Strategy seam:
+
+- Strategy module: `frontend/src/features/auth/authContinuationResolver.ts`
+- Goal: unify post-auth route resolution across signup, login, and Google OAuth callback
+- Current strategy order:
+  - `QuestionnaireSourceStrategy` (`source=questionnaire` -> `/app/onboarding`)
+  - `SignupDefaultStrategy` (`signup` -> `/app/onboarding`)
+  - `DefaultAppStrategy` (fallback -> `/app`)
+
+Usage pattern across feature transports:
+
 ```typescript
-const { getAccessTokenSilently } = useAuth0();
-const data = await apiRequest('/endpoint', { method: 'POST', data: body }, getAccessTokenSilently);
+const data = await apiRequest({
+  method: 'POST',
+  url: '/endpoint',
+  data: payload,
+})
 ```
 
 ---
@@ -497,13 +508,18 @@ socket.on('new_message', (msg) => setMessages(prev => [...prev, msg])); // alias
 
 | Path | Component | Auth Required | Description |
 |---|---|---|---|
-| `/` | `Landing` | No | Public landing page |
+| `/` | `LandingPage` | No | Public landing page |
+| `/start` | `PreAuthQuestionnairePage` | No | Pre-auth questionnaire |
+| `/login` | `LoginPage` | No | Email/password or Google sign-in |
+| `/signup` | `SignupPage` | No | Account creation + Google sign-in |
+| `/auth/callback` | `GoogleAuthCallbackPage` | No | OAuth callback exchange page |
 | `/app` | `DashboardPage` | Yes | Main dashboard |
 | `/app/onboarding` | `OnboardingPage` | Yes | 5-step profile setup |
 | `/app/discover` | `DiscoveryPage` | Yes | Browse potential roommates |
 | `/app/matches` | `MatchesPage` | Yes | View match history |
 | `/app/chat/:matchId?` | `ChatPage` | Yes | Real-time messaging |
-| `*` | `NotFound` | No | 404 page |
+| `/app/profile` | `ProfileEditorPage` | Yes | Profile editor |
+| `*` | `Navigate('/')` | No | Redirect to landing |
 
 ---
 
@@ -517,17 +533,17 @@ npm install
 npm run dev          # tsx watch src/server.ts (hot reload)
 npm run build        # tsc → dist/
 npm run start:prod   # node dist/server.js
-npm run seed         # Seed 8 demo users + matches + conversations
-npm run seed:reset   # Remove all demo data (auth0id starts with "demo_")
+npm run seed         # Seed idempotent synthetic Indian demo data
+npm run seed:reset   # Reserved reset script (currently passes --reset to same seed flow)
 npm run typecheck    # tsc --noEmit
 ```
 
 ### Frontend
 
 ```bash
-cd frontend/frontend
+cd frontend
 npm install
-npm run dev          # vite dev server on port 5173
+npm run dev          # vite dev server (typically 5173, app target URL may use 5174)
 npm run build        # vite build → dist/
 npm run preview      # vite preview (production build preview)
 npm run lint         # eslint

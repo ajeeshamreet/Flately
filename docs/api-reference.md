@@ -1,7 +1,7 @@
 # Flately — Complete API Reference
 
 > **Base URL**: `http://localhost:4000`  
-> **Auth**: All endpoints (except `/health`) require `Authorization: Bearer <JWT>` header  
+> **Auth**: `/health` and `/auth/*` are public; all other endpoints require `Authorization: Bearer <JWT>` header  
 > **Content-Type**: `application/json`
 
 ---
@@ -23,6 +23,20 @@ Tokens are issued by:
 
 - `POST /auth/signup`
 - `POST /auth/login`
+
+### Frontend Transport Contract (Canonical)
+
+The frontend transport layer uses native fetch with explicit Adapter + Strategy roles.
+
+- Replaced Axios transport with Adapter + Strategy in `api.ts`
+- Kept existing service call contract unchanged, so feature modules still call `apiRequest(...)`
+- Preserved auth token injection and one-shot 401 unauthorized handling behavior
+- Added a structured manual error model (`ApiError`) so existing UI error mapping still works
+
+Pattern fit for transport:
+
+- Strategy: `FetchRequestStrategy` handles low-level HTTP execution
+- Adapter: `HttpClientAdapter` adapts app-level request config to the strategy and centralizes cross-cutting auth behavior
 
 ### `POST /auth/signup`
 
@@ -142,6 +156,35 @@ Error responses:
 
 - `400` — `GOOGLE_EXCHANGE_CODE_REQUIRED`
 - `400` — `GOOGLE_EXCHANGE_CODE_INVALID`
+
+### `POST /uploads/signature`
+
+Return a signed Cloudinary payload for authenticated image uploads.
+
+**Auth**: Required
+
+Request body:
+```json
+{}
+```
+
+Success response (200):
+
+```json
+{
+  "cloudName": "demo",
+  "apiKey": "123456789012345",
+  "folder": "flately/profiles",
+  "timestamp": 1775427000,
+  "signature": "<sha1-signature>"
+}
+```
+
+Error responses:
+
+- `401` — `Unauthorized`
+- `503` — `CLOUDINARY_NOT_CONFIGURED`
+- `500` — `UPLOAD_SIGNATURE_FAILED`
 
 ---
 

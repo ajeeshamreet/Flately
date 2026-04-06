@@ -1,6 +1,7 @@
 # Flately — Project Setup & Development Guide
 
 > Quick-start guide to set up the full-stack Flately project from scratch.
+> Last updated: 2026-04-06
 
 ---
 
@@ -10,6 +11,8 @@
 - **npm** ≥ 9
 - **MongoDB Atlas** account (or a local MongoDB instance)
 - Backend JWT secret for local development
+- Google OAuth credentials for end-to-end Google sign-in testing
+- Cloudinary account (cloud name + API key + API secret)
 
 ---
 
@@ -40,8 +43,19 @@ PORT=4000
 DATABASE_URL="mongodb+srv://<username>:<password>@<cluster>.mongodb.net/flately"
 JWT_ACCESS_SECRET="<min-16-char-secret>"
 JWT_ACCESS_EXPIRES_IN="1h"
-FRONTEND_URL="http://localhost:5173"
+FRONTEND_URL="http://localhost:5174"
+GOOGLE_OAUTH_CLIENT_ID="<google-client-id>"
+GOOGLE_OAUTH_CLIENT_SECRET="<google-client-secret>"
+GOOGLE_OAUTH_CALLBACK_URL="http://localhost:4000/auth/google/callback"
+CLOUDINARY_CLOUD_NAME="<cloudinary-cloud-name>"
+CLOUDINARY_API_KEY="<cloudinary-api-key>"
+CLOUDINARY_API_SECRET="<cloudinary-api-secret>"
+CLOUDINARY_UPLOAD_FOLDER="flately/profiles"
 ```
+
+Notes:
+- `FRONTEND_URL` should match the frontend origin used for login callbacks.
+- If your frontend runs on a different origin (for example `http://localhost:5173`), update `FRONTEND_URL` accordingly.
 
 ### Generate Prisma Client
 
@@ -53,15 +67,17 @@ npx prisma generate
 ### Seed Demo Data (Optional)
 
 ```bash
-npm run seed         # Creates 8 demo users with matches and conversations
-npm run seed:reset   # Removes all seed data
+npm run seed         # Creates or updates synthetic Indian demo users with matches and conversations
+npm run seed:reset   # Reserved reset script (currently passes --reset to same seed flow)
 ```
+
+Current seed behavior is idempotent upsert of demo records; no destructive reset branch is currently implemented in `prisma/seed.ts`.
 
 ---
 
 ## 3. Frontend Environment
 
-Create `frontend/.env.example` (and copy values into `frontend/.env` for local development):
+Create `frontend/.env`:
 
 ```env
 VITE_API_BASE_URL=http://localhost:4000
@@ -70,7 +86,13 @@ VITE_CLOUDINARY_CLOUD_NAME=<cloud-name>
 VITE_CLOUDINARY_UPLOAD_PRESET=<upload-preset>
 ```
 
+Cloudinary upload flow:
+- Preferred: signed upload via backend `POST /uploads/signature` using backend Cloudinary secrets.
+- Compatibility fallback: unsigned preset upload if signed endpoint is not configured.
+
 Runtime values are loaded from `frontend/src/config/runtimeConfig.ts` and consumed by `main.tsx`, API client, and socket client.
+
+Frontend API transport is manual fetch-based and uses Adapter + Strategy (`HttpClientAdapter` + `FetchRequestStrategy`) in `src/services/api.ts`.
 
 ---
 
@@ -89,13 +111,15 @@ npm run dev
 ```bash
 cd frontend
 npm run dev
-# Output: Local: http://localhost:5173
+# Output: Local URL printed by Vite (commonly http://localhost:5173)
 ```
 
 ### Verify
 
 - **Backend health**: `curl http://localhost:4000/health` → `{ "status": "ok" }`
-- **Frontend**: Open `http://localhost:5173` in your browser
+- **Frontend**: Open the Vite local URL shown in terminal (commonly `http://localhost:5173`)
+- **OAuth callback target**: Ensure backend `FRONTEND_URL` matches the frontend origin used during sign-in
+- **Cloudinary signature check**: authenticated `POST /uploads/signature` should return signature payload when Cloudinary env is configured
 
 ---
 
@@ -108,14 +132,13 @@ flately-full_stack/
 │   ├── package.json            # Backend dependencies
 │   ├── tsconfig.json           # TypeScript config
 │   ├── prisma/
-│   │   ├── schema.prisma       # Database schema (6 models)
+│   │   ├── schema.prisma       # Database schema (7 models)
 │   │   ├── seed.ts             # Demo data seeder
-│   │   └── seed.js             # Compiled seeder
 │   └── src/
 │       ├── app.ts              # Express app setup
 │       ├── server.ts           # HTTP + Socket.IO server
 │       ├── config/             # Environment + Prisma config
-│       ├── middlewares/        # Auth0 JWT middleware
+│       ├── middlewares/        # JWT middleware + controller chain
 │       ├── modules/            # Feature modules (controller/service/routes)
 │       └── types/              # TypeScript interfaces
 ├── frontend/
@@ -123,7 +146,7 @@ flately-full_stack/
 │   ├── package.json            # Frontend dependencies
 │   ├── vite.config.ts          # Vite configuration
 │   └── src/
-│       ├── main.tsx            # App entry (Redux + AuthProvider + Router)
+│       ├── main.tsx            # App entry (Redux + AuthProvider + AuthBootstrap + Router)
 │       ├── index.css           # Design tokens
 │       ├── app/                # Router, store, layout
 │       ├── pages/              # Page components
@@ -148,15 +171,15 @@ flately-full_stack/
 | `test` | `vitest run` | Run backend test suite once |
 | `test:watch` | `vitest` | Run backend tests in watch mode |
 | `test:coverage` | `vitest run --coverage` | Run tests with coverage output |
-| `seed` | `tsx prisma/seed.ts` | Seed 8 demo users |
-| `seed:reset` | `tsx prisma/seed.ts --reset` | Remove demo data |
+| `seed` | `tsx prisma/seed.ts` | Seed idempotent demo data |
+| `seed:reset` | `tsx prisma/seed.ts --reset` | Reserved reset script (currently passes --reset to same seed flow) |
 | `typecheck` | `tsc --noEmit` | Type checking only |
 
 ### Frontend (`cd frontend`)
 
 | Script | Command | Purpose |
 |---|---|---|
-| `dev` | `vite` | Dev server on port 5173 |
+| `dev` | `vite` | Dev server (port assigned by Vite) |
 | `build` | `vite build` | Production build to `dist/` |
 | `preview` | `vite preview` | Preview production build |
 | `lint` | `eslint .` | Run linter |
@@ -184,7 +207,7 @@ flately-full_stack/
 
 1. **MongoDB + Prisma** — Chosen for flexible schema and fast prototyping. Prisma provides type-safe queries without native MongoDB driver boilerplate.
 
-2. **JWT-based manual auth** — Email/password flows are handled directly by backend auth endpoints and local session state.
+2. **JWT auth with dual sign-in modes** — Email/password and Google OAuth both issue the same backend JWT session shape for protected APIs.
 
 3. **Redux Toolkit** — Centralized state management for authenticated user state, discovery feed, matches, and chat conversations across all pages.
 
@@ -195,3 +218,5 @@ flately-full_stack/
 6. **TailwindCSS v4** — Uses the new `@theme` directive for design tokens and `@import "tailwindcss"` for setup. Custom tokens defined for the green command-center aesthetic.
 
 7. **Monorepo (simple)** — Backend and frontend are separate npm packages in the same repo, not managed by Turborepo/Nx. Each runs independently.
+
+8. **Manual Fetch Transport (Adapter + Strategy)** — Frontend API calls use native fetch via `HttpClientAdapter` + `FetchRequestStrategy`, while preserving the stable `apiRequest(...)` contract used across transport modules.

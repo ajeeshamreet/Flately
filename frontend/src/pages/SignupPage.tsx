@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { resolveAuthContinuationPath } from '@/features/auth/authContinuationResolver'
 import { formatAuthError, formatAuthErrorCode } from '@/features/auth/auth.error'
 
 export function SignupPage() {
@@ -34,7 +35,13 @@ export function SignupPage() {
     setError(null)
     try {
       await signUp(name, email, password)
-      navigate('/app/onboarding', { replace: true })
+      navigate(
+        resolveAuthContinuationPath({
+          entryPoint: 'signup',
+          source,
+        }),
+        { replace: true },
+      )
     } catch (submitError) {
       setError(formatAuthError(submitError, 'Unable to sign up'))
     }

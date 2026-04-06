@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { resolveAuthContinuationPath } from '@/features/auth/authContinuationResolver'
 import { formatAuthError, formatAuthErrorCode } from '@/features/auth/auth.error'
 
 export function GoogleAuthCallbackPage() {
@@ -10,8 +11,16 @@ export function GoogleAuthCallbackPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    const source = searchParams.get('source')
+
     if (isAuthenticated) {
-      navigate('/app', { replace: true })
+      navigate(
+        resolveAuthContinuationPath({
+          entryPoint: 'google-callback',
+          source,
+        }),
+        { replace: true },
+      )
       return
     }
 
@@ -36,7 +45,13 @@ export function GoogleAuthCallbackPage() {
       try {
         await completeGoogleSignIn(exchangeCode)
         if (!cancelled) {
-          navigate('/app', { replace: true })
+          navigate(
+            resolveAuthContinuationPath({
+              entryPoint: 'google-callback',
+              source,
+            }),
+            { replace: true },
+          )
         }
       } catch (exchangeError) {
         if (!cancelled) {

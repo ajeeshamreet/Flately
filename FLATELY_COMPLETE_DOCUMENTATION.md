@@ -197,7 +197,7 @@ cd flately-full_stack
 cd backend
 npm install
 npx prisma generate
-npm run seed  # Optional: Add demo data
+npm run seed  # Optional: Add synthetic Indian demo data
 
 # Frontend setup
 cd ../frontend/frontend
@@ -223,8 +223,8 @@ npm run dev  # Runs on port 5173
 |---------|-------------|
 | `npm start` | Start with nodemon |
 | `npm run dev` | Same as start |
-| `npm run seed` | Create demo data (8 users) |
-| `npm run seed:reset` | Remove all demo data |
+| `npm run seed` | Create idempotent synthetic Indian demo data (12 users) |
+| `npm run seed:reset` | Reserved reset script (currently passes --reset to same seed flow) |
 
 #### Frontend
 | Command | Description |
@@ -244,7 +244,7 @@ npm run dev  # Runs on port 5173
 backend/
 ├── prisma/
 │   ├── schema.prisma      # Database schema
-│   └── seed.js            # Demo data generator
+│   └── seed.ts            # Demo data generator
 ├── src/
 │   ├── app.js             # Express app configuration
 │   ├── server.js          # HTTP server + Socket.io
@@ -470,15 +470,17 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// User from Auth0
+// User authentication identity
 model User {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  auth0id   String   @unique
-  email     String   @unique
-  name      String?
-  picture   String?
-  createdAt DateTime @default(now())
-  profile   Profile?
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  email        String   @unique
+  passwordHash String?
+  googleId     String?
+  name         String?
+  picture      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  profile      Profile?
 }
 
 // User profile information
@@ -1126,10 +1128,10 @@ export const Input = forwardRef(({
 ### Seed Script Usage
 
 ```bash
-# Create 8 demo users with matches and conversations
+# Create/update 12 synthetic Indian demo users with matches and conversations
 npm run seed
 
-# Remove all demo data
+# Reserved reset script (currently passes --reset to same seed flow)
 npm run seed:reset
 ```
 
@@ -1137,35 +1139,39 @@ npm run seed:reset
 
 | Name | Email | Has Room | Gender | Occupation |
 |------|-------|----------|--------|------------|
-| Sarah Mitchell | sarah.demo@flately.test | Yes | Female | UX Designer |
-| Alex Chen | alex.demo@flately.test | No | Male | Software Engineer |
-| Jordan Taylor | jordan.demo@flately.test | Yes | Male | Marketing Manager |
-| Emma Rodriguez | emma.demo@flately.test | No | Female | Data Scientist |
-| Mike Johnson | mike.demo@flately.test | Yes | Male | Freelance Writer |
-| Lisa Park | lisa.demo@flately.test | No | Female | Graphic Designer |
-| David Kim | david.demo@flately.test | Yes | Male | Product Manager |
-| Nina Patel | nina.demo@flately.test | No | Female | Graduate Student |
+| Aarav Sharma | aarav.sharma@flately.demo | Yes | Male | Product Designer |
+| Ananya Reddy | ananya.reddy@flately.demo | No | Female | Software Engineer |
+| Vihaan Patel | vihaan.patel@flately.demo | Yes | Male | Finance Analyst |
+| Isha Menon | isha.menon@flately.demo | No | Female | Marketing Manager |
+| Kabir Verma | kabir.verma@flately.demo | Yes | Male | Consultant |
+| Meera Nair | meera.nair@flately.demo | No | Female | Data Scientist |
+| Raghav Singh | raghav.singh@flately.demo | No | Male | Founder |
+| Sanya Khanna | sanya.khanna@flately.demo | Yes | Female | Lawyer |
+| Aditya Joshi | aditya.joshi@flately.demo | No | Male | Student |
+| Priya Iyer | priya.iyer@flately.demo | Yes | Female | HR Lead |
+| Nikhil Desai | nikhil.desai@flately.demo | Yes | Male | Sales Manager |
+| Kavya Gupta | kavya.gupta@flately.demo | No | Female | Content Creator |
 
 ### Pre-created Matches
 
 ```
-Sarah ↔ Alex (with conversation)
-Jordan ↔ Emma (with conversation)
-Mike ↔ Lisa (with conversation)
+Aarav ↔ Meera
+Vihaan ↔ Sanya
+Kabir ↔ Isha
+Ananya ↔ Priya
+Aditya ↔ Kavya
+Raghav ↔ Nikhil
 ```
 
 ### Seed Script Details
 
 ```javascript
-// Demo users identifiable by auth0id prefix
-auth0id: 'demo_sarah_001'  // All demo users start with 'demo_'
-
-// Cleanup query
-const demoUsers = await prisma.user.findMany({
-  where: {
-    auth0id: { startsWith: 'demo_' }
-  }
-});
+// Idempotent upsert behavior by unique email
+await prisma.user.upsert({
+  where: { email: 'aarav.sharma@flately.demo' },
+  update: { ... },
+  create: { ... },
+})
 ```
 
 ---
@@ -1221,7 +1227,7 @@ flately-full_stack/
 │   ├── .env                          # Environment variables
 │   ├── prisma/
 │   │   ├── schema.prisma             # Database schema
-│   │   └── seed.js                   # Demo data generator
+│   │   └── seed.ts                   # Demo data generator
 │   └── src/
 │       ├── app.js                    # Express configuration
 │       ├── server.js                 # HTTP server + Socket.io
@@ -1340,8 +1346,8 @@ cd backend && npm start         # Backend on :4000
 cd frontend/frontend && npm run dev  # Frontend on :5173
 
 # Database
-npm run seed                    # Add demo data
-npm run seed:reset              # Remove demo data
+npm run seed                    # Add synthetic Indian demo data
+npm run seed:reset              # Reserved reset script (currently passes --reset to same seed flow)
 npx prisma studio              # Database GUI
 
 # Build
@@ -1378,9 +1384,9 @@ POST /profiles            # Create profile
 
 ## 📝 Notes
 
-1. **Auth0 tokens** must be refreshed - handled automatically by `getAccessTokenSilently()`
+1. **JWT sessions** are issued by backend auth endpoints for both email/password and Google OAuth.
 2. **Match IDs** are sorted (userAId < userBId) to prevent duplicates
-3. **Demo data** uses `demo_` prefix in auth0id for easy identification
+3. **Demo data** is seeded idempotently via unique email keys.
 4. **Tailwind v4** uses `@theme` directive instead of `tailwind.config.js`
 5. **Socket.io** requires CORS configuration for cross-origin requests
 

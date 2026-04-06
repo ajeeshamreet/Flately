@@ -1,6 +1,6 @@
 # Flately - End-to-End Flows and Flaw Backlog
 
-Last updated: 2026-04-05
+Last updated: 2026-04-06
 
 ## 1. Product Status
 
@@ -110,6 +110,17 @@ Severity: Low
 
 4. OAuth fallback redirect now returns to the active frontend origin.
    - Prevents wrong-port redirect issues during local development.
+
+5. Frontend API transport migrated from Axios to manual fetch architecture.
+   - Replaced Axios transport with Adapter + Strategy in `frontend/src/services/api.ts`.
+   - Kept existing service call contract unchanged, so feature modules still call `apiRequest(...)`.
+   - Preserved auth token injection and one-shot `401` unauthorized handling behavior.
+   - Added a structured manual error model (`ApiError`) so existing UI error mapping still works.
+
+Pattern fit for transport:
+
+- Strategy: `FetchRequestStrategy` handles low-level HTTP execution.
+- Adapter: `HttpClientAdapter` adapts app-level request config to the strategy and centralizes cross-cutting auth behavior.
 
 ## 6. Google OAuth Environment Variables
 
