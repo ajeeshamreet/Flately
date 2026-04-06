@@ -77,6 +77,7 @@ frontend/
         chat.messages.test.ts
         chat.socket.ts
       profile/
+        ProfilePhotoManager.tsx
         ProfileEditorPage.tsx
         profileSlice.ts
     pages/
@@ -243,10 +244,15 @@ Flow:
 2. If onboarding already complete: redirect to /app.
 3. Map server state into form model via mapper.
 4. Optionally merge questionnaire draft.
-5. Validate per-step before advance.
+5. Validate per-step before advance (step 1 requires at least one photo).
 6. Submit profile and preferences payloads.
 7. Clear questionnaire draft.
 8. Dispatch profile state and navigate /app.
+
+Photo UX contract:
+- Shared photo manager UI provides a button-first upload flow.
+- Manual URL photo entry is removed from onboarding.
+- First photo is primary; users can promote any image to primary.
 
 Data safety in mapper:
 - enum sanitization (fallback to allowed values)
@@ -268,6 +274,7 @@ Data loaded concurrently:
 - discovery feed
 
 Outputs:
+- primary profile image card with direct edit CTA
 - completion blockers
 - profile completion percentage
 - pool health summary
@@ -320,6 +327,10 @@ File: src/features/profile/ProfileEditorPage.tsx
 Tabs:
 - My Profile
 - Preferences
+
+Photo management:
+- Shared photo manager supports upload/remove/set-primary controls.
+- Photo changes persist through existing `POST /profiles/me` payload (`photos: string[]`).
 
 Validation:
 - profile: name/city required

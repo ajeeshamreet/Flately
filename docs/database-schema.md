@@ -288,31 +288,27 @@ const userBId = fromUserId < toUserId ? toUserId : fromUserId;
 
 ## 8. Seed Data (Current)
 
-Current seed script (backend/prisma/seed.ts) upserts 12 synthetic Indian demo users:
+Canonical dataset source:
+- `backend/seed/flately_dataset.json`
 
-| Name | Email | City |
-|---|---|---|
-| Aarav Sharma | aarav.sharma@flately.demo | Bengaluru |
-| Ananya Reddy | ananya.reddy@flately.demo | Hyderabad |
-| Vihaan Patel | vihaan.patel@flately.demo | Mumbai |
-| Isha Menon | isha.menon@flately.demo | Pune |
-| Kabir Verma | kabir.verma@flately.demo | Delhi |
-| Meera Nair | meera.nair@flately.demo | Bengaluru |
-| Raghav Singh | raghav.singh@flately.demo | Mumbai |
-| Sanya Khanna | sanya.khanna@flately.demo | Delhi |
-| Aditya Joshi | aditya.joshi@flately.demo | Pune |
-| Priya Iyer | priya.iyer@flately.demo | Hyderabad |
-| Nikhil Desai | nikhil.desai@flately.demo | Mumbai |
-| Kavya Gupta | kavya.gupta@flately.demo | Bengaluru |
+Current dataset footprint:
+- 16 users
+- 16 profiles
+- 16 preferences
+- 20 swipes
+- 6 matches
+- 4 conversations
+- 15 messages
 
-Seed also creates:
-- Profiles and preferences for all 12 users
-- 16 swipes across like/dislike actions
-- 6 matches + 6 conversations + 7 starter messages
+Seed pipeline behavior:
+- Validates cross-record references before writes (users/profiles/preferences/swipes/matches/conversations/messages)
+- Maps fake JSON ObjectIds to real DB-generated ObjectIds during insert/upsert
+- Supports idempotent upsert and optional full reset
 
 Commands:
 
 ```bash
 npm run seed         # Idempotent upsert seed flow
-npm run seed:reset   # Reserved reset script (currently passes --reset to same seed flow)
+npm run seed -- --dry-run   # Validate dataset only, no DB writes
+npm run seed:reset   # Delete seeded collections then reseed
 ```

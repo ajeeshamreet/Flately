@@ -334,7 +334,7 @@ frontend/src/
 │   ├── discovery/
 │   ├── matches/
 │   ├── chat/
-│   └── profile/
+│   └── profile/                       # ProfileEditorPage + ProfilePhotoManager
 ├── services/
 │   ├── api.ts                         # Fetch Adapter + Strategy + ApiError
 │   ├── auth.transport.ts
@@ -514,7 +514,7 @@ socket.on('new_message', (msg) => setMessages(prev => [...prev, msg])); // alias
 | `/signup` | `SignupPage` | No | Account creation + Google sign-in |
 | `/auth/callback` | `GoogleAuthCallbackPage` | No | OAuth callback exchange page |
 | `/app` | `DashboardPage` | Yes | Main dashboard |
-| `/app/onboarding` | `OnboardingPage` | Yes | 5-step profile setup |
+| `/app/onboarding` | `OnboardingPage` | Yes | 6-step profile setup with required photo step |
 | `/app/discover` | `DiscoveryPage` | Yes | Browse potential roommates |
 | `/app/matches` | `MatchesPage` | Yes | View match history |
 | `/app/chat/:matchId?` | `ChatPage` | Yes | Real-time messaging |
@@ -533,8 +533,9 @@ npm install
 npm run dev          # tsx watch src/server.ts (hot reload)
 npm run build        # tsc → dist/
 npm run start:prod   # node dist/server.js
-npm run seed         # Seed idempotent synthetic Indian demo data
-npm run seed:reset   # Reserved reset script (currently passes --reset to same seed flow)
+npm run seed         # Dataset-driven idempotent seed from backend/seed/flately_dataset.json
+npm run seed -- --dry-run  # Validate dataset + references with no DB writes
+npm run seed:reset   # Clear seeded collections then reseed from dataset
 npm run typecheck    # tsc --noEmit
 ```
 

@@ -67,11 +67,10 @@ npx prisma generate
 ### Seed Demo Data (Optional)
 
 ```bash
-npm run seed         # Creates or updates synthetic Indian demo users with matches and conversations
-npm run seed:reset   # Reserved reset script (currently passes --reset to same seed flow)
+npm run seed                 # Dataset-driven upsert seed flow (backend/seed/flately_dataset.json)
+npm run seed -- --dry-run    # Validate JSON schema + references, no DB writes
+npm run seed:reset           # Clear collections then reseed from dataset
 ```
-
-Current seed behavior is idempotent upsert of demo records; no destructive reset branch is currently implemented in `prisma/seed.ts`.
 
 ---
 
@@ -133,7 +132,11 @@ flately-full_stack/
 │   ├── tsconfig.json           # TypeScript config
 │   ├── prisma/
 │   │   ├── schema.prisma       # Database schema (7 models)
-│   │   ├── seed.ts             # Demo data seeder
+│   │   ├── seed.ts             # Prisma seed entrypoint
+│   ├── seed/
+│   │   ├── runSeed.ts          # Dataset-driven seed engine
+│   │   ├── seed.ts             # Direct seed entrypoint wrapper
+│   │   ├── flately_dataset.json # Canonical seed dataset
 │   └── src/
 │       ├── app.ts              # Express app setup
 │       ├── server.ts           # HTTP + Socket.IO server
@@ -171,8 +174,8 @@ flately-full_stack/
 | `test` | `vitest run` | Run backend test suite once |
 | `test:watch` | `vitest` | Run backend tests in watch mode |
 | `test:coverage` | `vitest run --coverage` | Run tests with coverage output |
-| `seed` | `tsx prisma/seed.ts` | Seed idempotent demo data |
-| `seed:reset` | `tsx prisma/seed.ts --reset` | Reserved reset script (currently passes --reset to same seed flow) |
+| `seed` | `tsx prisma/seed.ts` | Dataset-driven idempotent upsert seed |
+| `seed:reset` | `tsx prisma/seed.ts --reset` | Delete seeded collections then reseed from dataset |
 | `typecheck` | `tsc --noEmit` | Type checking only |
 
 ### Frontend (`cd frontend`)

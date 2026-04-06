@@ -75,6 +75,10 @@ Guard rules:
   - profile-related draft fields fill only when profile values are missing
   - preference-related draft fields fill only when preference values are missing
   - existing saved values take precedence over draft
+- Photo-first constraints:
+  - manual photo URL entry is removed
+  - at least one photo is required before moving past step 1
+  - first photo is the primary profile image and users can set a different primary image by reordering
 - Submit to:
   - `POST /profiles/me`
   - `POST /preferences/me`
@@ -83,6 +87,7 @@ Guard rules:
 5. Dashboard coaching hub
 - Route: `/app`
 - Must show:
+  - primary user profile image card with edit CTA to `/app/profile`
   - completion blockers (what is missing)
   - match eligibility / pool health status
   - one next best action CTA
@@ -107,6 +112,7 @@ Backend gate contract:
 9. Profile edits
 - Route: `/app/profile`
 - User can refine profile and preferences post-onboarding
+- User can upload/remove photos and set a primary photo (first item in photo list)
 
 ## Error and recovery paths
 
